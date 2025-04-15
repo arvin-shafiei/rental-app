@@ -46,4 +46,4 @@
 - [ ] LegalQAChatbot - (Ben - GPT wrapper, realtime Supabase DB)
 - [ ] DocumentStorageService - (TBD)
 - [ ] ReminderNotificationService - (Arvin - push notifications for iOS)
-- [ ] AdminSupportTools - (Arvin - analytics and whatever) 
+- [ ] AdminSupportTools - (Arvin, Ben - analytics and whatever) 
