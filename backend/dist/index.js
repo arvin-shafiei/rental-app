@@ -17,6 +17,11 @@ const port = process.env.PORT || 3001;
 // Apply middleware
 app.use((0, cors_1.default)()); // Enable CORS for all routes
 app.use(express_1.default.json()); // Parse JSON request bodies
+// Add request logging middleware
+app.use((req, _res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+});
 // Define a simple "route" handler for the root path ('/')
 app.get('/', (req, res) => {
     res.send('Hello from the Concurrent TypeScript Backend!');
