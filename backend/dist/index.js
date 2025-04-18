@@ -3,40 +3,35 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// Import the express library, which helps us build web servers
+// Load environment variables first, before any other imports
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+// Import other dependencies
 const express_1 = __importDefault(require("express"));
-// Import the function to create a Supabase client
-const supabase_js_1 = require("@supabase/supabase-js");
-// --- Supabase Configuration ---
-// IMPORTANT: Replace these placeholders with your actual Supabase project URL and anon key!
-// You can find these in your Supabase project settings under API.
-const supabaseUrl = process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
-// Check if the placeholder values are still being used
-if (supabaseUrl === 'YOUR_SUPABASE_URL' || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
-    console.warn('Supabase URL or Anon Key is not set. Please provide them in .env file or replace placeholders in src/index.ts');
-}
-// Create a Supabase client instance
-// This object will be used to interact with your Supabase backend (database, auth, etc.)
-// We are not using it in this basic example, but it's ready for you to use.
-const supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey);
-console.log('Supabase client initialized (check warnings if using placeholders).');
-// --- Express Server Setup ---
+const cors_1 = __importDefault(require("cors"));
+const routes_1 = __importDefault(require("./routes"));
 // Create an instance of the Express application
 const app = (0, express_1.default)();
 // Define the port number the server will listen on
-// It's common to use environment variables for this, but we'll hardcode it for simplicity for now.
-const port = 3001; // Often backend servers run on ports like 3001, 5000, 8000, etc.
+const port = process.env.PORT || 3001;
+// Apply middleware
+app.use((0, cors_1.default)()); // Enable CORS for all routes
+app.use(express_1.default.json()); // Parse JSON request bodies
 // Define a simple "route" handler for the root path ('/')
-// When someone accesses http://localhost:3001/, this function will run.
-// req: Represents the incoming request from the client (e.g., browser)
-// res: Represents the response we will send back to the client
 app.get('/', (req, res) => {
-    // Send a simple text response back
     res.send('Hello from the Concurrent TypeScript Backend!');
 });
+// Use the defined routes
+app.use('/api', routes_1.default);
 // Start the Express server and make it listen for incoming requests on the specified port
 app.listen(port, () => {
-    // This message will be printed to the console when the server starts successfully
     console.log(`Backend server listening at http://localhost:${port}`);
+    // Log environment variables status
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+        console.warn('WARNING: Supabase environment variables might not be properly set.');
+        console.warn('Make sure your .env file contains valid SUPABASE_URL and SUPABASE_ANON_KEY values.');
+    }
+    else {
+        console.log('Supabase environment variables loaded successfully.');
+    }
 });
