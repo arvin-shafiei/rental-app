@@ -16,6 +16,7 @@ const port = process.env.PORT || 3001;
 // Apply middleware
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json()); // Parse JSON request bodies
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded form data
 
 // Add request logging middleware
 app.use((req, _res, next) => {

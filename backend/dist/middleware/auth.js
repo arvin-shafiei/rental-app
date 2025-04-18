@@ -12,18 +12,58 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateUser = void 0;
 const supabase_1 = require("../services/supabase");
 /**
- * Middleware to check if the user is authenticated
- * This can be used on protected routes
+ * Extract the JWT token from the request headers
+ */
+const extractToken = (req) => {
+    // Check for Authorization header (Bearer token)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7); // Remove 'Bearer ' prefix
+    }
+    return null;
+};
+/**
+ * Middleware to verify JWT token and authenticate the user using Supabase's API
+ * This approach is more secure as it verifies the token with Supabase servers
+ * though it's slightly slower due to the network call
  */
 const authenticateUser = (req, res, next) => {
     (() => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            // Get session from Supabase (will use cookies/headers automatically)
-            const { data: { user }, error } = yield supabase_1.supabase.auth.getUser();
-            if (error || !user) {
+            // Extract token from headers
+            const token = extractToken(req);
+            if (!token) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Authentication required'
+                    message: 'Authentication token is required'
+                });
+            }
+            // Verify the token with Supabase
+            const { data: { user }, error } = yield supabase_1.supabase.auth.getUser(token);
+            if (error) {
+                console.error('Token verification error:', error.message);
+                // Determine the appropriate error response based on the error
+                if (error.message.includes('expired')) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Token has expired. Please log in again.'
+                    });
+                }
+                if (error.message.includes('invalid')) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Invalid authentication token'
+                    });
+                }
+                return res.status(401).json({
+                    success: false,
+                    message: 'Authentication failed'
+                });
+            }
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'User not found'
                 });
             }
             // Add the user to the request object for use in route handlers
@@ -32,6 +72,7 @@ const authenticateUser = (req, res, next) => {
             next();
         }
         catch (error) {
+            console.error('Auth middleware error:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Server error during authentication',

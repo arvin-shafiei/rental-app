@@ -2,11 +2,20 @@ import { Request, Response } from 'express';
 import { supabase } from '../services/supabase';
 import { AuthRequestBody } from '../types/auth';
 
+// Helper function to extract token from the request headers
+const extractToken = (req: Request): string | null => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  return null;
+};
+
 export class AuthController {
   /**
    * Register a new user
    */
-  static register(req: Request<{}, {}, AuthRequestBody>, res: Response) {
+  static register(req: Request, res: Response) {
     (async () => {
       try {
         const { email, password } = req.body;
@@ -93,9 +102,29 @@ export class AuthController {
   /**
    * Logout user
    */
-  static logout(_req: Request, res: Response) {
+  static logout(req: Request, res: Response) {
     (async () => {
       try {
+        // Extract token from headers for security
+        const token = extractToken(req);
+        
+        if (!token) {
+          return res.status(401).json({
+            success: false,
+            message: 'Authentication required to logout'
+          });
+        }
+        
+        // Verify the user is authenticated before logging out
+        const { error: getUserError } = await supabase.auth.getUser(token);
+        
+        if (getUserError) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid authentication token'
+          });
+        }
+        
         const { error } = await supabase.auth.signOut();
         
         if (error) {
@@ -122,10 +151,20 @@ export class AuthController {
   /**
    * Get current user
    */
-  static getCurrentUser(_req: Request, res: Response) {
+  static getCurrentUser(req: Request, res: Response) {
     (async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        // Extract token from headers for consistency with middleware
+        const token = extractToken(req);
+        
+        if (!token) {
+          return res.status(401).json({
+            success: false,
+            message: 'Authentication token is required'
+          });
+        }
+        
+        const { data: { user }, error } = await supabase.auth.getUser(token);
         
         if (error || !user) {
           return res.status(401).json({ 
