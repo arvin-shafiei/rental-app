@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Environment Variables
+
+- **NEVER** put environment variables or api keys or anything private into the code itself **EVER**

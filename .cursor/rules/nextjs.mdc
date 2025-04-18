@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# nextjs - react rules
+
+- always create reusable components when making a page wherever possible
+- follow best practices and use the most maintainable project structures

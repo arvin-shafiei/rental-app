@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Project Structure
+
+## You MUST abide to proper programming practices for the tech stack used:
+- Nodejs with ts (backend)
+- nextjs with ts (frontend)
+- tailwind for styling (frontend)
+- mobile app with flutter (frontend)
+- supabase (backend)
