@@ -15,9 +15,7 @@ const extractToken = (req: Request): string | null => {
 };
 
 /**
- * Middleware to verify JWT token and authenticate the user using Supabase's API
- * This approach is more secure as it verifies the token with Supabase servers
- * though it's slightly slower due to the network call
+ * Middleware to verify Supabase JWT token and authenticate the user
  */
 export const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
   (async () => {
@@ -35,34 +33,10 @@ export const authenticateUser = (req: Request, res: Response, next: NextFunction
       // Verify the token with Supabase
       const { data: { user }, error } = await supabase.auth.getUser(token);
       
-      if (error) {
-        console.error('Token verification error:', error.message);
-        
-        // Determine the appropriate error response based on the error
-        if (error.message.includes('expired')) {
-          return res.status(401).json({
-            success: false,
-            message: 'Token has expired. Please log in again.'
-          });
-        }
-        
-        if (error.message.includes('invalid')) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid authentication token'
-          });
-        }
-        
+      if (error || !user) {
         return res.status(401).json({
           success: false,
-          message: 'Authentication failed'
-        });
-      }
-      
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'User not found'
+          message: 'Invalid or expired authentication token'
         });
       }
       

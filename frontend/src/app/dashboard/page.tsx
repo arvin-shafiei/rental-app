@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
+import BackendTest from '@/components/BackendTest';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -85,11 +86,13 @@ export default function Dashboard() {
                 </p>
                 
                 <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {/* Backend Test Component */}
+                  <BackendTest />
+                  
                   {/* Example dashboard items */}
                   {[
                     { title: 'Profile', description: 'Manage your profile information' },
                     { title: 'Settings', description: 'Configure your account settings' },
-                    { title: 'Notifications', description: 'View your latest notifications' },
                   ].map((item, index) => (
                     <div key={index} className="overflow-hidden rounded-lg bg-white shadow">
                       <div className="p-5">
