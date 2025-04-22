@@ -43,7 +43,7 @@
 - [ ] RentComparisonEngine - (Arvin)
 - [ ] FlatmateAgreementBuilder - (Ben)
 - [ ] DepositDeadlineTracker - (Arvin)
-- [ ] LegalQAChatbot - (Ben - GPT wrapper, realtime Supabase DB)
+<!-- - [ ] LegalQAChatbot - (Ben - GPT wrapper, realtime Supabase DB) -->
 - [ ] DocumentStorageService - (TBD)
 - [ ] ReminderNotificationService - (Arvin - push notifications for iOS)
 - [ ] AdminSupportTools - (Arvin, Ben - analytics and whatever) 
