@@ -1,5 +1,5 @@
-// Import the function to create a Supabase client specifically for browser environments in Next.js
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+// Import the createClient function directly from @supabase/supabase-js
+import { createClient } from '@supabase/supabase-js';
 
 // Get the Supabase URL and Anon Key from environment variables
 // The `process.env.NEXT_PUBLIC_...` syntax is how Next.js exposes environment variables to the browser
@@ -15,11 +15,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create and export the Supabase client instance
-// The exclamation mark (!) after the variables tells TypeScript we are sure they are not null or undefined
-// because we checked above.
-// We wrap this in a function to ensure it's created only when needed, though createPagesBrowserClient often handles this.
-// Using a constant export is also common.
-export const supabase = createPagesBrowserClient({
-  supabaseUrl,
-  supabaseKey: supabaseAnonKey,
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
 }); 

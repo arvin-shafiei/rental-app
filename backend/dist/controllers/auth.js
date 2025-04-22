@@ -11,6 +11,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const supabase_1 = require("../services/supabase");
+// Helper function to extract token from the request headers
+const extractToken = (req) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+    return null;
+};
 class AuthController {
     /**
      * Register a new user
@@ -94,9 +102,25 @@ class AuthController {
     /**
      * Logout user
      */
-    static logout(_req, res) {
+    static logout(req, res) {
         (() => __awaiter(this, void 0, void 0, function* () {
             try {
+                // Extract token from headers for security
+                const token = extractToken(req);
+                if (!token) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Authentication required to logout'
+                    });
+                }
+                // Verify the user is authenticated before logging out
+                const { error: getUserError } = yield supabase_1.supabase.auth.getUser(token);
+                if (getUserError) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Invalid authentication token'
+                    });
+                }
                 const { error } = yield supabase_1.supabase.auth.signOut();
                 if (error) {
                     return res.status(400).json({
@@ -121,10 +145,18 @@ class AuthController {
     /**
      * Get current user
      */
-    static getCurrentUser(_req, res) {
+    static getCurrentUser(req, res) {
         (() => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { data: { user }, error } = yield supabase_1.supabase.auth.getUser();
+                // Extract token from headers for consistency with middleware
+                const token = extractToken(req);
+                if (!token) {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Authentication token is required'
+                    });
+                }
+                const { data: { user }, error } = yield supabase_1.supabase.auth.getUser(token);
                 if (error || !user) {
                     return res.status(401).json({
                         success: false,
