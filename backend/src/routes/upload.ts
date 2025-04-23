@@ -5,9 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { authenticateUser } from '../middleware/auth';
 import sharp from 'sharp';
 import { supabaseAdmin } from '../services/supabase';
+import { PropertyService } from '../services/propertyService';
 
 // Initialize router
 const router = Router();
+const propertyService = new PropertyService();
 
 // Set up multer for handling file uploads
 // We'll store files temporarily in memory
@@ -29,10 +31,44 @@ const upload = multer({
   }
 });
 
+// Validate property access and build path
+const validatePropertyAndBuildPath = async (
+  userId: string, 
+  propertyId: string, 
+  roomName?: string
+): Promise<string> => {
+  // Check if the property exists and belongs to the user
+  const property = await propertyService.getPropertyById(propertyId, userId);
+  
+  if (!property) {
+    throw new Error(`Property with ID ${propertyId} not found or you don't have access to it`);
+  }
+  
+  // Build path: userId/propertyId/roomName/images/
+  let storagePath = `${userId}/${propertyId}/`;
+  
+  if (roomName) {
+    // Sanitize room name (remove spaces, special chars)
+    const sanitizedRoomName = roomName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+      
+    storagePath += `${sanitizedRoomName}/`;
+  }
+  
+  storagePath += 'images/';
+  
+  return storagePath;
+};
+
 // Upload image to Supabase Storage using service role
 const uploadToSupabase = async (
   fileBuffer: Buffer, 
   userId: string, 
+  propertyId: string,
+  roomName: string | undefined,
   filename: string
 ): Promise<string> => {
   // Check if the bucket exists using service role client
@@ -48,10 +84,14 @@ const uploadToSupabase = async (
     throw new Error('Storage bucket "room-media" does not exist');
   }
   
+  // Get the storage path with property validation
+  const basePath = await validatePropertyAndBuildPath(userId, propertyId, roomName);
+  const fullPath = `${basePath}${filename}`;
+  
   // Upload the file to Supabase storage using service role client
   const { data, error } = await supabaseAdmin.storage
     .from('room-media')
-    .upload(`${userId}/${filename}`, fileBuffer, {
+    .upload(fullPath, fileBuffer, {
       contentType: 'image/webp',
       upsert: false
     });
@@ -72,6 +112,18 @@ router.post('/image', authenticateUser, upload.single('image'), async (req: Requ
       return;
     }
     
+    // Get property ID and room name from query parameters
+    const propertyId = req.query.propertyId as string;
+    const roomName = req.query.roomName as string | undefined;
+    
+    if (!propertyId) {
+      res.status(400).json({
+        success: false,
+        message: 'propertyId query parameter is required'
+      });
+      return;
+    }
+    
     const user = (req as any).user;
     const userId = user.id;
     
@@ -86,12 +138,18 @@ router.post('/image', authenticateUser, upload.single('image'), async (req: Requ
       .toBuffer();
     
     // Upload to Supabase storage using service role
-    const supabasePath = await uploadToSupabase(optimizedImageBuffer, userId, filename);
+    const supabasePath = await uploadToSupabase(
+      optimizedImageBuffer, 
+      userId, 
+      propertyId, 
+      roomName, 
+      filename
+    );
     
     // Get a public URL for the uploaded file using service role
     const { data: publicUrlData } = supabaseAdmin.storage
       .from('room-media')
-      .getPublicUrl(`${userId}/${filename}`);
+      .getPublicUrl(supabasePath);
     
     res.status(200).json({
       success: true,
@@ -100,6 +158,8 @@ router.post('/image', authenticateUser, upload.single('image'), async (req: Requ
         filename,
         timestamp,
         path: supabasePath,
+        propertyId,
+        roomName: roomName || 'unspecified',
         url: publicUrlData.publicUrl
       }
     });
@@ -124,6 +184,18 @@ router.post('/images', authenticateUser, upload.array('images', 10), async (req:
       return;
     }
     
+    // Get property ID and room name from query parameters
+    const propertyId = req.query.propertyId as string;
+    const roomName = req.query.roomName as string | undefined;
+    
+    if (!propertyId) {
+      res.status(400).json({
+        success: false,
+        message: 'propertyId query parameter is required'
+      });
+      return;
+    }
+    
     const user = (req as any).user;
     const userId = user.id;
     
@@ -141,17 +213,25 @@ router.post('/images', authenticateUser, upload.array('images', 10), async (req:
           .toBuffer();
         
         // Upload to Supabase storage using service role
-        const supabasePath = await uploadToSupabase(optimizedImageBuffer, userId, filename);
+        const supabasePath = await uploadToSupabase(
+          optimizedImageBuffer, 
+          userId, 
+          propertyId, 
+          roomName, 
+          filename
+        );
         
         // Get a public URL for the uploaded file using service role
         const { data: publicUrlData } = supabaseAdmin.storage
           .from('room-media')
-          .getPublicUrl(`${userId}/${filename}`);
+          .getPublicUrl(supabasePath);
         
         return {
           filename,
           timestamp,
           path: supabasePath,
+          propertyId,
+          roomName: roomName || 'unspecified',
           url: publicUrlData.publicUrl
         };
       })
