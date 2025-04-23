@@ -4,7 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticateUser } from '../middleware/auth';
 import sharp from 'sharp';
-import { supabase } from '../services/supabase';
+import { supabaseAdmin } from '../services/supabase';
 
 // Initialize router
 const router = Router();
@@ -29,14 +29,14 @@ const upload = multer({
   }
 });
 
-// Upload image to Supabase Storage
+// Upload image to Supabase Storage using service role
 const uploadToSupabase = async (
   fileBuffer: Buffer, 
   userId: string, 
   filename: string
 ): Promise<string> => {
-  // Check if the bucket exists
-  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  // Check if the bucket exists using service role client
+  const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
   
   if (listError || !buckets) {
     throw new Error(`Failed to check storage buckets: ${listError?.message || 'No buckets data returned'}`);
@@ -48,8 +48,8 @@ const uploadToSupabase = async (
     throw new Error('Storage bucket "room-media" does not exist');
   }
   
-  // Upload the file to Supabase storage
-  const { data, error } = await supabase.storage
+  // Upload the file to Supabase storage using service role client
+  const { data, error } = await supabaseAdmin.storage
     .from('room-media')
     .upload(`${userId}/${filename}`, fileBuffer, {
       contentType: 'image/webp',
@@ -85,11 +85,11 @@ router.post('/image', authenticateUser, upload.single('image'), async (req: Requ
       .webp({ quality: 80 }) // Optimize image
       .toBuffer();
     
-    // Upload to Supabase storage
+    // Upload to Supabase storage using service role
     const supabasePath = await uploadToSupabase(optimizedImageBuffer, userId, filename);
     
-    // Get a public URL for the uploaded file
-    const { data: publicUrlData } = supabase.storage
+    // Get a public URL for the uploaded file using service role
+    const { data: publicUrlData } = supabaseAdmin.storage
       .from('room-media')
       .getPublicUrl(`${userId}/${filename}`);
     
@@ -140,11 +140,11 @@ router.post('/images', authenticateUser, upload.array('images', 10), async (req:
           .webp({ quality: 80 })
           .toBuffer();
         
-        // Upload to Supabase storage
+        // Upload to Supabase storage using service role
         const supabasePath = await uploadToSupabase(optimizedImageBuffer, userId, filename);
         
-        // Get a public URL for the uploaded file
-        const { data: publicUrlData } = supabase.storage
+        // Get a public URL for the uploaded file using service role
+        const { data: publicUrlData } = supabaseAdmin.storage
           .from('room-media')
           .getPublicUrl(`${userId}/${filename}`);
         
