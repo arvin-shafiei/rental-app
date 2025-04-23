@@ -16,9 +16,9 @@ const getAuthToken = async (): Promise<string | null> => {
 };
 
 /**
- * Makes an authenticated request to the backend API
+ * Makes an authenticated request to the Next.js API route
  */
-export const fetchFromBackend = async (endpoint: string, options: RequestInit = {}) => {
+export const fetchFromApi = async (endpoint: string, options: RequestInit = {}) => {
   const token = await getAuthToken();
   
   if (!token) {
@@ -33,20 +33,66 @@ export const fetchFromBackend = async (endpoint: string, options: RequestInit = 
   };
   
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    console.log(`Making authenticated request to: /api${endpoint}`);
+    const response = await fetch(`/api${endpoint}`, {
       ...options,
       headers,
     });
     
     if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      const errorData = await response.json();
+      console.error(`API request failed with status ${response.status}:`, errorData);
+      throw new Error(errorData.error || `API request failed with status ${response.status}`);
     }
     
     return await response.json();
   } catch (error) {
-    console.error('Backend API request failed:', error);
+    console.error('API request failed:', error);
     throw error;
   }
+};
+
+/**
+ * Get all properties
+ */
+export const getProperties = async () => {
+  return fetchFromApi('/properties');
+};
+
+/**
+ * Get a property by ID
+ */
+export const getProperty = async (id: string) => {
+  return fetchFromApi(`/properties/${id}`);
+};
+
+/**
+ * Create a new property
+ */
+export const createProperty = async (propertyData: any) => {
+  return fetchFromApi('/properties', {
+    method: 'POST',
+    body: JSON.stringify(propertyData)
+  });
+};
+
+/**
+ * Update a property
+ */
+export const updateProperty = async (id: string, propertyData: any) => {
+  return fetchFromApi(`/properties/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(propertyData)
+  });
+};
+
+/**
+ * Delete a property
+ */
+export const deleteProperty = async (id: string) => {
+  return fetchFromApi(`/properties/${id}`, {
+    method: 'DELETE'
+  });
 };
 
 /**
@@ -55,7 +101,7 @@ export const fetchFromBackend = async (endpoint: string, options: RequestInit = 
  */
 export const testBackendConnection = async () => {
   try {
-    const data = await fetchFromBackend('/protected');
+    const data = await fetchFromApi('/protected');
     console.log('Backend connection successful:', data);
     return data;
   } catch (error) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import BackendTest from '@/components/BackendTest';
+import { Home } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -34,15 +35,6 @@ export default function Dashboard() {
     checkAuth();
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -55,63 +47,59 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="rounded-md bg-red-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-          >
-            Logout
-          </button>
-        </div>
-      </header>
-      
-      {/* Main content */}
-      <main>
-        <div className="mx-auto max-w-7xl py-12 sm:px-6 lg:px-8">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <div className="flex flex-col items-center justify-center text-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="h-10 w-10 text-blue-600">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
+    <div className="bg-white overflow-hidden shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex flex-col items-center justify-center text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="h-10 w-10 text-blue-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+          <h2 className="mt-4 text-2xl font-bold text-gray-900">Welcome, {email || 'User'}!</h2>
+          <p className="mt-2 text-gray-600">
+            You're now logged into your dashboard where you can manage your account.
+          </p>
+          
+          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Backend Test Component */}
+            <BackendTest />
+            
+            {/* Properties Dashboard Item */}
+            <div className="overflow-hidden rounded-lg bg-white shadow">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <Home className="h-5 w-5 mr-2 text-blue-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Properties</h3>
                 </div>
-                <h2 className="mt-4 text-2xl font-bold text-gray-900">Welcome, {email || 'User'}!</h2>
-                <p className="mt-2 text-gray-600">
-                  You're now logged into your dashboard where you can manage your account.
-                </p>
-                
-                <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {/* Backend Test Component */}
-                  <BackendTest />
-                  
-                  {/* Example dashboard items */}
-                  {[
-                    { title: 'Profile', description: 'Manage your profile information' },
-                    { title: 'Settings', description: 'Configure your account settings' },
-                  ].map((item, index) => (
-                    <div key={index} className="overflow-hidden rounded-lg bg-white shadow">
-                      <div className="p-5">
-                        <h3 className="text-lg font-medium text-gray-900">{item.title}</h3>
-                        <p className="mt-1 text-sm text-gray-500">{item.description}</p>
-                        <div className="mt-4">
-                          <button className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100">
-                            View details
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <p className="mt-1 text-sm text-gray-500">Manage your rental properties</p>
+                <div className="mt-4">
+                  <Link href="/dashboard/properties" className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                    View properties
+                  </Link>
                 </div>
               </div>
             </div>
+            
+            {/* Example dashboard items */}
+            {[
+              { title: 'Profile', description: 'Manage your profile information' },
+              { title: 'Settings', description: 'Configure your account settings' },
+            ].map((item, index) => (
+              <div key={index} className="overflow-hidden rounded-lg bg-white shadow">
+                <div className="p-5">
+                  <h3 className="text-lg font-medium text-gray-900">{item.title}</h3>
+                  <p className="mt-1 text-sm text-gray-500">{item.description}</p>
+                  <div className="mt-4">
+                    <button className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                      View details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 } 
