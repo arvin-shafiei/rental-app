@@ -19,6 +19,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# MCP
+.cursor/mcp.json
+
 # IDE
 .idea
 .vscode
