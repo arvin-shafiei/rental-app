@@ -103,19 +103,32 @@ export const syncPropertyTimeline = async (req: Request, res: Response) => {
   }
 
   const propertyId = req.params.propertyId;
+  if (!propertyId) {
+    return res.status(400).json({ error: 'Property ID is required' });
+  }
+  
+  console.log(`Starting timeline sync for property ${propertyId} by user ${userId}`);
   const options = req.body.options || {};
+  console.log('Sync options:', options);
   
   try {
     const success = await timelineService.syncPropertyTimeline(propertyId, userId, options);
     if (!success) {
+      console.log(`Timeline sync failed for property ${propertyId}`);
       return res.status(500).json({ error: 'Failed to sync property timeline' });
     }
     
     // Get updated events to return
+    console.log(`Timeline sync successful for property ${propertyId}, fetching updated events`);
     const events = await timelineService.getEventsByProperty(propertyId, userId);
+    console.log(`Returning ${events.length} timeline events to client`);
     return res.status(200).json(events);
   } catch (error) {
     console.error('Error syncing property timeline:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
+    });
   }
 };

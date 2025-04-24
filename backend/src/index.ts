@@ -73,6 +73,9 @@ app.get('/api/debug', (req: Request, res: Response) => {
 // Use the defined routes
 app.use('/api', routes);
 
+// Add timeline routes
+app.use('/api/timeline', timelineRoutes);
+
 // Add 404 handler for undefined routes
 app.use((req: Request, res: Response) => {
   console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
@@ -91,8 +94,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
   });
 });
-
-app.use('/api/timeline', timelineRoutes);
 
 // Start the Express server and make it listen for incoming requests on the specified port
 app.listen(port, () => {
