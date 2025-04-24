@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -14,7 +14,7 @@ import {
   Loader2,
   Home
 } from 'lucide-react';
-import { format, parseISO, isAfter, isBefore, addDays } from 'date-fns';
+import { format, parseISO, isAfter, isBefore, addDays, isSameDay, compareAsc, compareDesc } from 'date-fns';
 import { 
   getPropertyTimelineEvents, 
   syncPropertyTimeline,
@@ -48,25 +48,78 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     notification_days_before: 3
   });
   
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
+    if (!propertyId) return;
+    
     try {
       setLoading(true);
       setError(null);
-      const result = await getPropertyTimelineEvents(propertyId);
-      setEvents(result.data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load timeline events');
-      console.error('Error loading timeline events:', err);
+      
+      console.log(`Fetching events for property: ${propertyId}`);
+      const response = await getPropertyTimelineEvents(propertyId);
+      console.log("Raw API response:", JSON.stringify(response, null, 2));
+      
+      // Make sure we're handling the correct response format
+      let eventsArray: TimelineEvent[] = [];
+      if (Array.isArray(response)) {
+        console.log("Response is an array with", response.length, "events");
+        eventsArray = response;
+      } else if (response && typeof response === 'object') {
+        console.log("Response is an object:", Object.keys(response).join(", "));
+        if (Array.isArray(response.data)) {
+          console.log("Response.data is an array with", response.data.length, "events");
+          eventsArray = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          console.log("Response.data is an object:", Object.keys(response.data).join(", "));
+          // Handle nested data structure if present
+          if (Array.isArray(response.data.data)) {
+            console.log("Response.data.data is an array with", response.data.data.length, "events");
+            eventsArray = response.data.data;
+          } else {
+            console.log("No valid events array found in response.data.data");
+          }
+        } else {
+          console.log("Response.data is not an array or object:", response.data);
+        }
+      } else {
+        console.warn("No events found in API response", response);
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+      
+      console.log(`Total events received: ${eventsArray.length}`);
+      
+      // Group events by upcoming/past
+      const now = new Date();
+      const upcomingEventsArray = eventsArray
+        .filter((event) => {
+          const startDate = parseISO(event.start_date);
+          return isAfter(startDate, now) || isSameDay(startDate, now);
+        })
+        .sort((a, b) => compareAsc(parseISO(a.start_date), parseISO(b.start_date)));
+
+      const pastEventsArray = eventsArray
+        .filter((event) => {
+          const startDate = parseISO(event.start_date);
+          return isBefore(startDate, now) && !isSameDay(startDate, now);
+        })
+        .sort((a, b) => compareDesc(parseISO(a.start_date), parseISO(b.start_date)));
+
+      setEvents(eventsArray);
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch events");
     } finally {
       setLoading(false);
     }
-  };
+  }, [propertyId]);
   
   useEffect(() => {
     if (propertyId) {
       fetchEvents();
     }
-  }, [propertyId]);
+  }, [propertyId, fetchEvents]);
   
   const handleSyncTimeline = async () => {
     try {
@@ -186,15 +239,28 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     }
   };
   
-  // Group events by status (upcoming/past)
+  // Filter events by current date
   const today = new Date();
-  const upcomingEvents = events.filter(event => 
-    !event.is_completed && isAfter(parseISO(event.start_date), addDays(today, -1))
-  ).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   
-  const pastEvents = events.filter(event => 
-    event.is_completed || isBefore(parseISO(event.start_date), today)
-  ).sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+  // Add console logs to debug date filtering
+  console.log("Filtering events - Today's date:", today.toISOString());
+  
+  const upcomingEvents = events
+    .filter((event) => {
+      const eventDate = parseISO(event.start_date);
+      const isUpcoming = isAfter(eventDate, today) || isSameDay(eventDate, today);
+      // Debug each event date comparison
+      console.log(`Event ${event.id}: Date=${event.start_date}, IsUpcoming=${isUpcoming}`);
+      return isUpcoming;
+    })
+    .sort((a, b) => compareAsc(parseISO(a.start_date), parseISO(b.start_date)));
+
+  const pastEvents = events
+    .filter((event) => {
+      const eventDate = parseISO(event.start_date);
+      return isBefore(eventDate, today) && !isSameDay(eventDate, today);
+    })
+    .sort((a, b) => compareDesc(parseISO(a.start_date), parseISO(b.start_date)));
   
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -238,6 +304,68 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
           </div>
         </div>
       )}
+      
+      {/* DEBUG SECTION - Shows raw data received from API */}
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <AlertCircle className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-yellow-700">DEBUG: All Events</p>
+            <p className="text-sm text-yellow-600">Total events received: {events.length}</p>
+            {events.length > 0 ? (
+              <div className="mt-2 max-h-60 overflow-auto">
+                <table className="text-xs w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-1">Title</th>
+                      <th className="text-left p-1">Date</th>
+                      <th className="text-left p-1">Type</th>
+                      <th className="text-left p-1">Notify</th>
+                      <th className="text-left p-1">Completed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map(event => (
+                      <tr key={event.id} className="border-b">
+                        <td className="p-1">{event.title}</td>
+                        <td className="p-1">{new Date(event.start_date).toLocaleDateString()}</td>
+                        <td className="p-1">{event.event_type}</td>
+                        <td className="p-1">{event.notification_days_before} days</td>
+                        <td className="p-1">{event.is_completed ? 'Yes' : 'No'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-yellow-600 mt-2">No events found in API response.</p>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* DEBUG SECTION - Shows filtered events after filtering */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <AlertCircle className="h-5 w-5 text-blue-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-blue-700">DEBUG: Filtered Events</p>
+            <p className="text-sm text-blue-600">Upcoming events: {upcomingEvents.length}</p>
+            <p className="text-sm text-blue-600">Past events: {pastEvents.length}</p>
+            <p className="text-sm text-blue-600 mt-2 font-medium">
+              Today's date: {new Date().toLocaleDateString()}
+              <br />
+              Today's ISO date: {new Date().toISOString().split('T')[0]}
+              <br />
+              Property ID being used: {propertyId}
+            </p>
+          </div>
+        </div>
+      </div>
       
       {showAddForm && (
         <div className="p-4 border-b">

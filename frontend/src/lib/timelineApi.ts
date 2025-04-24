@@ -64,7 +64,25 @@ export interface TimelineSyncOptions {
  * Get timeline events for a specific property
  */
 export const getPropertyTimelineEvents = async (propertyId: string) => {
-  return fetchFromApi(`/timeline/properties/${propertyId}/events`);
+  console.log(`Fetching timeline events for property: ${propertyId}`);
+  try {
+    const result = await fetchFromApi(`/timeline/properties/${propertyId}/events`);
+    
+    // Add detailed logging to see what the API is returning
+    console.log('Timeline API response status:', result.status);
+    console.log('Timeline API response data type:', typeof result.data);
+    console.log('Timeline API data length:', Array.isArray(result.data) ? result.data.length : 'not an array');
+    console.log('Timeline API first few events:', Array.isArray(result.data) ? result.data.slice(0, 2) : result.data);
+    
+    // Make sure we're returning the data in the expected format
+    return {
+      status: result.status,
+      data: Array.isArray(result.data) ? result.data : (result.data?.data || [])
+    };
+  } catch (error) {
+    console.error('Error fetching timeline events:', error);
+    throw error;
+  }
 };
 
 /**
