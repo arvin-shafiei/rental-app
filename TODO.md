@@ -37,7 +37,7 @@
 - [ ] RegionSettingsService - Set between Scotland, England (TBD)
 - [ ] ContractAnalysisEngine - (Arvin - after training up AI)
 - [ ] ChecklistStorageService - (Ben - attach S3 bucket)
-- [ ] PhotoUploadService - (Ben - simple S3 with Supabase, use service role only to access)
+- [X] PhotoUploadService - (Ben - simple S3 with Supabase, use service role only to access)
 - [ ] RepairEmailGenerator - (Ben - SMTP needed, GSuite)
 - [ ] TimelineSyncEngine - (Ben)
 - [ ] RentComparisonEngine - (Arvin)
