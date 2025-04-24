@@ -38,7 +38,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState({  
     title: '',
     description: '',
     event_type: TimelineEventType.CUSTOM,
@@ -56,60 +56,21 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
       setError(null);
       
       console.log(`Fetching events for property: ${propertyId}`);
-      const response = await getPropertyTimelineEvents(propertyId);
-      console.log("Raw API response:", JSON.stringify(response, null, 2));
+      const eventsData = await getPropertyTimelineEvents(propertyId);
+      console.log("Raw API response:", JSON.stringify(eventsData, null, 2));
       
-      // Make sure we're handling the correct response format
-      let eventsArray: TimelineEvent[] = [];
-      if (Array.isArray(response)) {
-        console.log("Response is an array with", response.length, "events");
-        eventsArray = response;
-      } else if (response && typeof response === 'object') {
-        console.log("Response is an object:", Object.keys(response).join(", "));
-        if (Array.isArray(response.data)) {
-          console.log("Response.data is an array with", response.data.length, "events");
-          eventsArray = response.data;
-        } else if (response.data && typeof response.data === 'object') {
-          console.log("Response.data is an object:", Object.keys(response.data).join(", "));
-          // Handle nested data structure if present
-          if (Array.isArray(response.data.data)) {
-            console.log("Response.data.data is an array with", response.data.data.length, "events");
-            eventsArray = response.data.data;
-          } else {
-            console.log("No valid events array found in response.data.data");
-          }
-        } else {
-          console.log("Response.data is not an array or object:", response.data);
-        }
+      // The API should return an array directly now
+      if (Array.isArray(eventsData)) {
+        console.log(`Total events received: ${eventsData.length}`);
+        setEvents(eventsData);
       } else {
-        console.warn("No events found in API response", response);
+        console.warn("API response is not an array, setting empty events list");
         setEvents([]);
-        setLoading(false);
-        return;
       }
-      
-      console.log(`Total events received: ${eventsArray.length}`);
-      
-      // Group events by upcoming/past
-      const now = new Date();
-      const upcomingEventsArray = eventsArray
-        .filter((event) => {
-          const startDate = parseISO(event.start_date);
-          return isAfter(startDate, now) || isSameDay(startDate, now);
-        })
-        .sort((a, b) => compareAsc(parseISO(a.start_date), parseISO(b.start_date)));
-
-      const pastEventsArray = eventsArray
-        .filter((event) => {
-          const startDate = parseISO(event.start_date);
-          return isBefore(startDate, now) && !isSameDay(startDate, now);
-        })
-        .sort((a, b) => compareDesc(parseISO(a.start_date), parseISO(b.start_date)));
-
-      setEvents(eventsArray);
     } catch (err) {
       console.error("Error fetching events:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch events");
+      setEvents([]);
     } finally {
       setLoading(false);
     }

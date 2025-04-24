@@ -24,8 +24,8 @@ export async function POST(
     const requestBody = await req.json();
     
     // Forward the request to the backend with the same authorization header
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const endpoint = `/api/timeline/properties/${propertyId}/sync`;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+    const endpoint = `/timeline/properties/${propertyId}/sync`;
     
     console.log('Forwarding request to backend at:', `${backendUrl}${endpoint}`);
     

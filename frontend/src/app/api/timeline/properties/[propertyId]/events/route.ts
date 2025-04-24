@@ -21,8 +21,8 @@ export async function GET(
     }
     
     // Forward the request to the backend with the same authorization header
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const endpoint = `/api/timeline/properties/${propertyId}/events`;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+    const endpoint = `/timeline/properties/${propertyId}/events`;
     
     console.log('Forwarding request to backend at:', `${backendUrl}${endpoint}`);
     
@@ -56,10 +56,19 @@ export async function GET(
     
     const data = await response.json();
     console.log('Timeline events fetched successfully');
-    console.log('Events count from backend:', Array.isArray(data) ? data.length : (data.data ? data.data.length : 'N/A'));
-    console.log('Response structure:', JSON.stringify(data).slice(0, 200) + '...');
     
-    return NextResponse.json(data);
+    // Handle both possible response formats
+    let eventsArray;
+    if (Array.isArray(data)) {
+      console.log('Backend returned an array with', data.length, 'events');
+      return NextResponse.json(data);
+    } else if (data && typeof data === 'object' && data.data && Array.isArray(data.data)) {
+      console.log('Backend returned object with data array containing', data.data.length, 'events');
+      return NextResponse.json(data.data);
+    } else {
+      console.log('Backend returned unexpected data format:', JSON.stringify(data).slice(0, 200) + '...');
+      return NextResponse.json([]);
+    }
   } catch (error: any) {
     console.error('Error in GET /api/timeline/properties/[propertyId]/events:', error);
     return NextResponse.json(

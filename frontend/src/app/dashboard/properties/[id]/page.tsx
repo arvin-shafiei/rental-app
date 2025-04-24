@@ -51,7 +51,9 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
       }
     };
 
-    fetchProperty();
+    if (params.id) {
+      fetchProperty();
+    }
   }, [params.id]);
 
   const handleDeleteProperty = async () => {
