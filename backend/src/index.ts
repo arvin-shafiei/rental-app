@@ -6,7 +6,7 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import routes from './routes';
-
+import timelineRoutes from './routes/timeline';
 // Create an instance of the Express application
 const app = express();
 
@@ -91,6 +91,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
   });
 });
+
+app.use('/api/timeline', timelineRoutes);
 
 // Start the Express server and make it listen for incoming requests on the specified port
 app.listen(port, () => {
