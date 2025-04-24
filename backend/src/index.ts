@@ -6,7 +6,7 @@ dotenv.config();
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import routes from './routes';
-
+import timelineRoutes from './routes/timeline';
 // Create an instance of the Express application
 const app = express();
 
@@ -72,6 +72,9 @@ app.get('/api/debug', (req: Request, res: Response) => {
 
 // Use the defined routes
 app.use('/api', routes);
+
+// Add timeline routes
+app.use('/api/timeline', timelineRoutes);
 
 // Add 404 handler for undefined routes
 app.use((req: Request, res: Response) => {

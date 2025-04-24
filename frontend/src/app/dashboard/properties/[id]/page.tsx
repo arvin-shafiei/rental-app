@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Home, Loader2, Trash } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
+import PropertyTimeline from '@/components/timeline/PropertyTimeline';
 
 interface Property {
   id: string;
@@ -50,7 +51,9 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
       }
     };
 
-    fetchProperty();
+    if (params.id) {
+      fetchProperty();
+    }
   }, [params.id]);
 
   const handleDeleteProperty = async () => {
@@ -488,6 +491,11 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Timeline Events Section */}
+            <div className="mt-8 pt-4 border-t">
+              <PropertyTimeline propertyId={property.id} propertyName={property.name} />
             </div>
 
             <div className="flex justify-end space-x-3 mt-8 pt-4 border-t">
