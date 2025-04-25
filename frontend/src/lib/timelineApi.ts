@@ -34,6 +34,7 @@ export interface TimelineEvent {
   created_at: string;
   updated_at: string;
   metadata?: Record<string, any>;
+  property_name?: string;
 }
 
 export interface CreateTimelineEventDTO {

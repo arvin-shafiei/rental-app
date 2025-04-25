@@ -145,18 +145,26 @@ export class TimelineService {
   }
 
   /**
-   * Get upcoming timeline events for a user across all properties
+   * Get upcoming events that should trigger notifications
    */
   async getUpcomingEvents(userId: string, daysAhead: number = 30): Promise<TimelineEvent[]> {
+    const today = new Date();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
     
-    const { data, error } = await supabase
+    // First, get all upcoming events with property details
+    const { data, error } = await supabaseAdmin
       .from('timeline_events')
-      .select('*')
+      .select(`
+        *,
+        properties:property_id (
+          id,
+          name
+        )
+      `)
       .eq('user_id', userId)
       .lte('start_date', format(cutoffDate, 'yyyy-MM-dd'))
-      .gte('start_date', format(new Date(), 'yyyy-MM-dd'))
+      .gte('start_date', format(today, 'yyyy-MM-dd'))
       .order('start_date', { ascending: true });
 
     if (error) {
@@ -164,7 +172,36 @@ export class TimelineService {
       return [];
     }
 
-    return data as TimelineEvent[];
+    // Filter events based on notification_days_before
+    const notifiableEvents = data.filter(event => {
+      // If the event doesn't have notification_days_before set, don't show a notification
+      if (!event.notification_days_before) return false;
+      
+      // If the event is already completed, don't show a notification
+      if (event.is_completed) return false;
+      
+      // Calculate the notification date for this event
+      const eventDate = parseISO(event.start_date);
+      const notificationDate = new Date(eventDate);
+      notificationDate.setDate(notificationDate.getDate() - event.notification_days_before);
+      
+      // Notification should appear if today is on or after the notification date
+      // but before or on the actual event date
+      return (
+        (today >= notificationDate && today <= eventDate) ||
+        // Special case for same-day notifications
+        (format(today, 'yyyy-MM-dd') === format(eventDate, 'yyyy-MM-dd') && 
+         event.notification_days_before === 0)
+      );
+    });
+
+    // Add property_name to each event for easier display
+    const eventsWithPropertyNames = notifiableEvents.map(event => ({
+      ...event,
+      property_name: event.properties?.name
+    }));
+
+    return eventsWithPropertyNames as TimelineEvent[];
   }
 
   /**
