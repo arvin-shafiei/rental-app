@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, Loader2, AlertCircle, Filter, ArrowLeft } from 'lucide-react';
+import { Calendar, Loader2, AlertCircle, Filter, ArrowLeft, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO, isAfter, isBefore, addDays } from 'date-fns';
 import { getUpcomingTimelineEvents, TimelineEvent, TimelineEventType } from '@/lib/timelineApi';
+import CalendarExport from '@/components/CalendarExport';
 
 export default function TimelinePage() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
@@ -12,6 +13,7 @@ export default function TimelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all'); // all, upcoming, past
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   
   useEffect(() => {
     const fetchEvents = async () => {
@@ -75,21 +77,101 @@ export default function TimelinePage() {
     }
     return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
   });
+
+  // Prepare event for calendar export
+  const prepareEventForExport = (event: TimelineEvent) => {
+    // Make sure we have valid dates
+    const startDate = parseISO(event.start_date);
+    // If endDate is not provided, use startDate + 1 hour
+    let endDate;
+    if (event.end_date) {
+      endDate = parseISO(event.end_date);
+    } else {
+      endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 1);
+    }
+    
+    // Handle invalid dates
+    if (isNaN(startDate.getTime())) {
+      console.error('Invalid start date:', event.start_date);
+      // Use current date instead
+      const now = new Date();
+      const oneHourLater = new Date(now);
+      oneHourLater.setHours(oneHourLater.getHours() + 1);
+      
+      return {
+        title: event.title || 'Untitled Event',
+        description: event.description || `${formatEventType(event.event_type)} for property ${event.property_name || ''}`,
+        startDateTime: now.toISOString(),
+        endDateTime: oneHourLater.toISOString(),
+        location: event.property_name || ''
+      };
+    }
+    
+    if (isNaN(endDate.getTime())) {
+      console.error('Invalid end date:', endDate);
+      endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 1);
+    }
+    
+    return {
+      title: event.title || 'Untitled Event',
+      description: event.description || `${formatEventType(event.event_type)} for property ${event.property_name || ''}`,
+      startDateTime: startDate.toISOString(),
+      endDateTime: endDate.toISOString(),
+      location: event.property_name || ''
+    };
+  };
   
   return (
     <div>
+      {/* Calendar Export Button - Shown when an event is selected */}
+      {selectedEvent && (
+        <div className="fixed bottom-4 right-4 z-50 bg-white p-4 shadow-lg rounded-lg border border-blue-300">
+          <div className="flex flex-col items-start space-y-2">
+            <h3 className="font-medium text-blue-800">
+              Add "{selectedEvent.title}" to Your Calendar
+            </h3>
+            <CalendarExport 
+              eventData={prepareEventForExport(selectedEvent)} 
+            />
+            <button 
+              onClick={() => setSelectedEvent(null)} 
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <Calendar className="h-6 w-6 mr-2 text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">Timeline</h1>
         </div>
-        <Link 
-          href="/dashboard" 
-          className="rounded-md bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
-        >
-          <ArrowLeft className="inline-block w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Link>
+        <div className="flex items-center space-x-4">
+          {/* Main Calendar Export Button (always visible) */}
+          <button
+            onClick={() => {
+              if (!selectedEvent && sortedEvents.length > 0) {
+                // Auto-select the first event if none is selected
+                setSelectedEvent(sortedEvents[0]);
+              }
+            }}
+            className="flex items-center rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+          >
+            <Calendar className="inline-block w-4 h-4 mr-2" />
+            Export to Calendar
+          </button>
+          <Link 
+            href="/dashboard" 
+            className="rounded-md bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+          >
+            <ArrowLeft className="inline-block w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Link>
+        </div>
       </div>
       
       {/* Filters */}
@@ -159,11 +241,7 @@ export default function TimelinePage() {
         ) : (
           <div className="divide-y divide-gray-200">
             {sortedEvents.map(event => (
-              <Link 
-                key={event.id}
-                href={`/dashboard/properties/${event.property_id}`}
-                className="block hover:bg-gray-50"
-              >
+              <div key={event.id} className="block hover:bg-gray-50">
                 <div className="px-6 py-4 flex items-start">
                   <span className="text-2xl mr-4 w-8 text-center">{getEventIcon(event.event_type)}</span>
                   <div className="flex-1">
@@ -175,16 +253,41 @@ export default function TimelinePage() {
                           {event.is_completed && ' • Completed'}
                         </p>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getEventTypeColor(event.event_type)}`}>
-                        {formatEventType(event.event_type)}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-xs px-2 py-1 rounded-full ${getEventTypeColor(event.event_type)}`}>
+                          {formatEventType(event.event_type)}
+                        </span>
+                        {/* Calendar Add Button for each event */}
+                        <button 
+                          onClick={() => setSelectedEvent(event)}
+                          className="inline-flex items-center p-1 border border-blue-300 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100"
+                          title="Add to Calendar"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                     {event.description && (
                       <p className="mt-1 text-sm text-gray-600">{event.description}</p>
                     )}
+                    <div className="mt-2 flex space-x-2">
+                      <Link 
+                        href={`/dashboard/properties/${event.property_id}`}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        View Property
+                      </Link>
+                      <button 
+                        onClick={() => setSelectedEvent(event)}
+                        className="text-xs flex items-center text-blue-600 hover:text-blue-800"
+                      >
+                        <PlusCircle className="h-3 w-3 mr-1" />
+                        Add to Calendar
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}

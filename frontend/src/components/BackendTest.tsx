@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { getProperties } from '@/lib/api';
 
@@ -22,16 +22,10 @@ interface Property {
 export default function BackendTest() {
   const [message, setMessage] = useState<string>('Testing connection to backend...');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
-  const [roomName, setRoomName] = useState<string>('');
   const [propertiesError, setPropertiesError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function testBackend() {
@@ -86,90 +80,6 @@ export default function BackendTest() {
     }
   };
 
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setUploadResult(null); // Clear previous upload results
-    }
-  };
-
-  // Handle property selection
-  const handlePropertyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedPropertyId(e.target.value);
-  };
-
-  // Handle room name input
-  const handleRoomNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRoomName(e.target.value);
-  };
-
-  // Handle file upload
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      alert('Please select a file first');
-      return;
-    }
-
-    if (!authToken) {
-      alert('You need to be logged in to upload files');
-      return;
-    }
-
-    if (!selectedPropertyId) {
-      alert('Please select a property');
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
-      
-      // Create a FormData object to send the file
-      const formData = new FormData();
-      formData.append('image', selectedFile);
-      
-      // Build the URL with query parameters for propertyId and roomName
-      let uploadUrl = `${backendUrl}/upload/image?propertyId=${selectedPropertyId}`;
-      if (roomName.trim()) {
-        uploadUrl += `&roomName=${encodeURIComponent(roomName.trim())}`;
-      }
-      
-      // Make the request to the backend
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: formData
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        setUploadResult(result);
-        alert('File uploaded successfully!');
-      } else {
-        const errorData = await response.json();
-        console.error('Upload failed:', errorData);
-        alert(`Upload failed: ${errorData.message || response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert(`Error uploading file: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Handle file reset
-  const handleReset = () => {
-    setSelectedFile(null);
-    setUploadResult(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   // Handle login with Supabase (simplified for testing)
   const handleLogin = async () => {
     // For testing purposes, we'll use a magic link login
@@ -200,13 +110,12 @@ export default function BackendTest() {
     await supabase.auth.signOut();
     setAuthToken(null);
     setProperties([]);
-    setSelectedPropertyId('');
     alert('Logged out successfully');
   };
 
   return (
     <div className="p-4 my-4 rounded-lg border">
-      <h2 className="text-xl font-semibold mb-2">Backend Connection & File Upload Test</h2>
+      <h2 className="text-xl font-semibold mb-2">Backend Connection Test</h2>
       
       {/* Connection status */}
       <p className={`${
@@ -243,10 +152,10 @@ export default function BackendTest() {
         </div>
       </div>
       
-      {/* Property selection */}
+      {/* Property listing (for testing) */}
       {authToken && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-medium mb-2">Property Selection</h3>
+          <h3 className="text-lg font-medium mb-2">Properties (API Test)</h3>
           
           {loadingProperties ? (
             <div className="flex items-center text-gray-500">
@@ -271,103 +180,15 @@ export default function BackendTest() {
               No properties found. Please add a property from the dashboard first.
             </div>
           ) : (
-            <>
-              <div className="mb-3">
-                <label htmlFor="property-select" className="block text-sm font-medium text-gray-700 mb-1">
-                  Select Property:
-                </label>
-                <select
-                  id="property-select"
-                  value={selectedPropertyId}
-                  onChange={handlePropertyChange}
-                  className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isUploading}
-                >
-                  <option value="">-- Select a Property --</option>
-                  {properties.map(property => (
-                    <option key={property.id} value={property.id}>
-                      {property.emoji ? `${property.emoji} ` : ''}{property.name} ({property.postcode})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="room-name" className="block text-sm font-medium text-gray-700 mb-1">
-                  Room Name (optional):
-                </label>
-                <input
-                  id="room-name"
-                  type="text"
-                  value={roomName}
-                  onChange={handleRoomNameChange}
-                  placeholder="e.g. Bedroom, Kitchen, etc."
-                  className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isUploading}
-                />
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      
-      {/* File upload section */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-        <h3 className="text-lg font-medium mb-2">File Upload Test</h3>
-        
-        {/* File input */}
-        <div className="mb-3">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            disabled={!authToken || isUploading}
-            className="block w-full mb-2 text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-            accept="image/*"
-          />
-          {selectedFile && (
-            <div className="text-sm text-gray-500">
-              Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
-            </div>
-          )}
-        </div>
-        
-        {/* Upload buttons */}
-        <div className="flex space-x-2">
-          <button
-            onClick={handleUpload}
-            disabled={!selectedFile || !authToken || !selectedPropertyId || isUploading}
-            className={`px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {isUploading ? 'Uploading...' : 'Upload File'}
-          </button>
-          
-          <button
-            onClick={handleReset}
-            disabled={!selectedFile || isUploading}
-            className="px-3 py-1 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-      
-      {/* Upload result */}
-      {uploadResult && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="text-lg font-medium mb-2 text-green-700">Upload Successful!</h3>
-          <div className="bg-white p-2 rounded overflow-x-auto">
-            <pre className="text-sm text-gray-800">{JSON.stringify(uploadResult, null, 2)}</pre>
-          </div>
-          {uploadResult.data?.url && (
-            <div className="mt-3">
-              <h4 className="text-md font-medium mb-1">Image Preview:</h4>
-              <img 
-                src={uploadResult.data.url} 
-                alt="Uploaded" 
-                className="max-w-full max-h-64 object-contain border rounded"
-              />
-            </div>
+            <ul className="list-disc pl-5">
+              {properties.map(property => (
+                <li key={property.id} className="mb-1">
+                  {property.emoji ? `${property.emoji} ` : ''}
+                  <span className="font-medium">{property.name}</span> 
+                  <span className="text-sm text-gray-500">({property.postcode})</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

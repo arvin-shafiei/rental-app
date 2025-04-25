@@ -145,18 +145,29 @@ export class TimelineService {
   }
 
   /**
-   * Get upcoming timeline events for a user across all properties
+   * Get upcoming events that should trigger notifications
    */
   async getUpcomingEvents(userId: string, daysAhead: number = 30): Promise<TimelineEvent[]> {
-    const cutoffDate = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    const cutoffDate = new Date(today);
     cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
     
-    const { data, error } = await supabase
+    // First, get all upcoming events with property details
+    const { data, error } = await supabaseAdmin
       .from('timeline_events')
-      .select('*')
+      .select(`
+        *,
+        properties:property_id (
+          id,
+          name
+        )
+      `)
       .eq('user_id', userId)
       .lte('start_date', format(cutoffDate, 'yyyy-MM-dd'))
-      .gte('start_date', format(new Date(), 'yyyy-MM-dd'))
+      .gte('start_date', todayStr)
       .order('start_date', { ascending: true });
 
     if (error) {
@@ -164,7 +175,54 @@ export class TimelineService {
       return [];
     }
 
-    return data as TimelineEvent[];
+    console.log(`Found ${data.length} upcoming events for user ${userId}`);
+    
+    // Filter events based on notification_days_before
+    const notifiableEvents = data.filter(event => {
+      // If the event is already completed, don't show a notification
+      if (event.is_completed) return false;
+      
+      // Parse event date
+      const eventDate = parseISO(event.start_date);
+      eventDate.setHours(0, 0, 0, 0);
+      const eventDateStr = format(eventDate, 'yyyy-MM-dd');
+      
+      // Always include events happening today
+      if (eventDateStr === todayStr) {
+        console.log(`Including event ${event.id} (${event.title}) because it's happening today`);
+        return true;
+      }
+      
+      // If the event doesn't have notification_days_before set, don't show a notification
+      if (!event.notification_days_before && event.notification_days_before !== 0) {
+        return false;
+      }
+      
+      // Calculate the notification date for this event
+      const notificationDate = new Date(eventDate);
+      notificationDate.setDate(notificationDate.getDate() - event.notification_days_before);
+      notificationDate.setHours(0, 0, 0, 0);
+      
+      // Notification should appear if today is on or after the notification date
+      // but before or on the actual event date
+      const shouldNotify = today >= notificationDate && today <= eventDate;
+      
+      if (shouldNotify) {
+        console.log(`Including event ${event.id} (${event.title}) with notification_days_before=${event.notification_days_before}`);
+      }
+      
+      return shouldNotify;
+    });
+
+    console.log(`Filtered to ${notifiableEvents.length} notifiable events`);
+
+    // Add property_name to each event for easier display
+    const eventsWithPropertyNames = notifiableEvents.map(event => ({
+      ...event,
+      property_name: event.properties?.name
+    }));
+
+    return eventsWithPropertyNames as TimelineEvent[];
   }
 
   /**
@@ -182,7 +240,7 @@ export class TimelineService {
       console.error('Error fetching property data:', propertyError);
       return false;
     }
-    
+
     if (!property) {
       console.error('Property not found:', { propertyId, userId });
       return false;
@@ -204,11 +262,18 @@ export class TimelineService {
     try {
       console.log('Syncing timeline for property:', propertyId);
       console.log('Property data:', JSON.stringify(property, null, 2));
+      console.log('Sync options:', JSON.stringify(options, null, 2));
+      
+      // Add sync options to property object for use in generator methods
+      const propertyWithOptions = {
+        ...property,
+        sync_options: options
+      };
       
       // Generate lease-related events if requested
       if (options.autoGenerateLeaseEvents !== false && property.lease_start_date && property.lease_end_date) {
         console.log('Generating lease events with dates:', property.lease_start_date, property.lease_end_date);
-        await this.generateLeaseEvents(property, userId);
+        await this.generateLeaseEvents(propertyWithOptions, userId);
       } else {
         console.log('Skipping lease events generation:', {
           autoGenerateLeaseEvents: options.autoGenerateLeaseEvents,
@@ -220,7 +285,7 @@ export class TimelineService {
       // Generate rent due dates if requested
       if (options.autoGenerateRentDueDates !== false && property.lease_start_date && property.rent_amount) {
         console.log('Generating rent due dates with:', property.lease_start_date, property.rent_amount);
-        await this.generateRentDueDates(property, userId);
+        await this.generateRentDueDates(propertyWithOptions, userId);
       } else {
         console.log('Skipping rent due dates generation:', {
           autoGenerateRentDueDates: options.autoGenerateRentDueDates,
@@ -402,6 +467,18 @@ export class TimelineService {
     if (leaseStart.getDate() > rentDueDay) {
       currentDate = addMonths(currentDate, 1);
       console.log(`Lease starts after the rent due day, moving to next month: ${format(currentDate, 'yyyy-MM-dd')}`);
+    }
+    
+    // Check upfront rent paid from options
+    const syncOptions = property.sync_options || {};
+    const upfrontRentPaid = syncOptions.upfrontRentPaid || 0;
+    
+    console.log(`Upfront rent paid: ${upfrontRentPaid} months`);
+    
+    // Skip the months that have been paid upfront
+    if (upfrontRentPaid > 0) {
+      console.log(`Skipping ${upfrontRentPaid} months due to upfront payment`);
+      currentDate = addMonths(currentDate, upfrontRentPaid);
     }
     
     console.log(`Generating rent due events from ${format(currentDate, 'yyyy-MM-dd')} to ${format(leaseEnd, 'yyyy-MM-dd')}`);
