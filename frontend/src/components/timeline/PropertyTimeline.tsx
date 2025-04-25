@@ -395,22 +395,8 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
             ) : (
               <RefreshCw className="h-4 w-4 mr-1" />
             )}
-            Sync Timeline
+            Generate Events
           </button>
-          {upcomingEvents.length > 0 && (
-            <button
-              onClick={() => {
-                if (upcomingEvents.length > 0) {
-                  const nextEvent = upcomingEvents[0];
-                  handleToggleComplete(nextEvent);
-                }
-              }}
-              className="inline-flex items-center rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-1" />
-              Mark Complete
-            </button>
-          )}
           <button
             onClick={handleAddEvent}
             className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
