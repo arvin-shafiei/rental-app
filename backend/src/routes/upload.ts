@@ -44,8 +44,8 @@ const validatePropertyAndBuildPath = async (
     throw new Error(`Property with ID ${propertyId} not found or you don't have access to it`);
   }
   
-  // Build path: userId/propertyId/roomName/images/
-  let storagePath = `${userId}/${propertyId}/`;
+  // Build path: userId/propertyId/images/roomName/
+  let storagePath = `${userId}/${propertyId}/images/`;
   
   if (roomName) {
     // Sanitize room name (remove spaces, special chars)
@@ -56,9 +56,10 @@ const validatePropertyAndBuildPath = async (
       .replace(/^-|-$/g, '');
       
     storagePath += `${sanitizedRoomName}/`;
+  } else {
+    // If no room name specified, use 'unspecified' as folder
+    storagePath += 'unspecified/';
   }
-  
-  storagePath += 'images/';
   
   return storagePath;
 };
@@ -272,15 +273,18 @@ router.get('/property/:propertyId/images', authenticateUser, async (req: Request
       return;
     }
     
-    // List all files in the property directory
-    const { data: propertyFolders, error: foldersError } = await supabaseAdmin.storage
+    // The new path structure: userId/propertyId/images/
+    const baseImagesPath = `${userId}/${propertyId}/images`;
+    
+    // List all rooms in the images directory
+    const { data: roomFolders, error: foldersError } = await supabaseAdmin.storage
       .from('room-media')
-      .list(`${userId}/${propertyId}`, {
+      .list(baseImagesPath, {
         sortBy: { column: 'name', order: 'asc' }
       });
     
     if (foldersError) {
-      console.error('Error listing property folders:', foldersError);
+      console.error('Error listing room folders:', foldersError);
       res.status(500).json({
         success: false,
         message: 'Error listing rooms',
@@ -290,12 +294,12 @@ router.get('/property/:propertyId/images', authenticateUser, async (req: Request
     }
     
     // Filter directories (rooms)
-    const roomFolders = propertyFolders || [];
-    console.log(`Found ${roomFolders.length} items in property directory:`, roomFolders);
+    const filteredRoomFolders = roomFolders || [];
+    console.log(`Found ${filteredRoomFolders.length} room folders in images directory:`, filteredRoomFolders);
     
     // Get images for each room
     const roomsWithImages = await Promise.all(
-      roomFolders.map(async (folder) => {
+      filteredRoomFolders.map(async (folder) => {
         const roomName = folder.name;
         
         // Skip non-directory items
@@ -307,14 +311,13 @@ router.get('/property/:propertyId/images', authenticateUser, async (req: Request
         
         console.log(`Processing room folder: ${roomName}`);
         
-        // Check first if the images directory exists
-        const imagesPath = `${userId}/${propertyId}/${roomName}/images`;
-        console.log(`Checking for images directory at: ${imagesPath}`);
+        // New path structure: userId/propertyId/images/roomName
+        const roomPath = `${baseImagesPath}/${roomName}`;
         
-        // List all files in the room/images directory
+        // List all files in the room directory
         const { data: imageFiles, error: imagesError } = await supabaseAdmin.storage
           .from('room-media')
-          .list(imagesPath, {
+          .list(roomPath, {
             sortBy: { column: 'created_at', order: 'desc' }
           });
         
@@ -338,7 +341,7 @@ router.get('/property/:propertyId/images', authenticateUser, async (req: Request
         
         // Generate URLs for each image
         const images = await Promise.all(validImageFiles.map(async file => {
-          const path = `${imagesPath}/${file.name}`;
+          const path = `${roomPath}/${file.name}`;
           
           // Create a signed URL that expires in 1 day (86400 seconds)
           const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
