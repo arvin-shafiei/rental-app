@@ -254,4 +254,139 @@ router.post('/images', authenticateUser, upload.array('images', 10), async (req:
   }
 });
 
+// List rooms and images for a property
+router.get('/property/:propertyId/images', authenticateUser, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const propertyId = req.params.propertyId;
+    const user = (req as any).user;
+    const userId = user.id;
+    
+    // Check if the property exists and belongs to the user
+    const property = await propertyService.getPropertyById(propertyId, userId);
+    
+    if (!property) {
+      res.status(404).json({
+        success: false,
+        message: `Property with ID ${propertyId} not found or you don't have access to it`
+      });
+      return;
+    }
+    
+    // List all files in the property directory
+    const { data: propertyFolders, error: foldersError } = await supabaseAdmin.storage
+      .from('room-media')
+      .list(`${userId}/${propertyId}`, {
+        sortBy: { column: 'name', order: 'asc' }
+      });
+    
+    if (foldersError) {
+      console.error('Error listing property folders:', foldersError);
+      res.status(500).json({
+        success: false,
+        message: 'Error listing rooms',
+        error: foldersError.message
+      });
+      return;
+    }
+    
+    // Filter directories (rooms)
+    const roomFolders = propertyFolders || [];
+    console.log(`Found ${roomFolders.length} items in property directory:`, roomFolders);
+    
+    // Get images for each room
+    const roomsWithImages = await Promise.all(
+      roomFolders.map(async (folder) => {
+        const roomName = folder.name;
+        
+        // Skip non-directory items
+        // Supabase indicates directories with .metadata = null
+        if (!folder || folder.metadata !== null) {
+          console.log(`Skipping non-directory item: ${folder?.name}`);
+          return null;
+        }
+        
+        console.log(`Processing room folder: ${roomName}`);
+        
+        // Check first if the images directory exists
+        const imagesPath = `${userId}/${propertyId}/${roomName}/images`;
+        console.log(`Checking for images directory at: ${imagesPath}`);
+        
+        // List all files in the room/images directory
+        const { data: imageFiles, error: imagesError } = await supabaseAdmin.storage
+          .from('room-media')
+          .list(imagesPath, {
+            sortBy: { column: 'created_at', order: 'desc' }
+          });
+        
+        if (imagesError) {
+          console.error(`Error listing images for room ${roomName}:`, imagesError);
+          return {
+            roomName,
+            images: []
+          };
+        }
+        
+        // Filter non-images
+        const validImageFiles = imageFiles?.filter(file => 
+          file.metadata !== null && 
+          typeof file.metadata === 'object' && 
+          file.name.match(/\.(jpe?g|png|gif|webp)$/i)
+        ) || [];
+        
+        console.log(`Found ${validImageFiles.length} valid images in room ${roomName}:`, 
+          validImageFiles.map(f => f.name));
+        
+        // Generate URLs for each image
+        const images = await Promise.all(validImageFiles.map(async file => {
+          const path = `${imagesPath}/${file.name}`;
+          
+          // Create a signed URL that expires in 1 day (86400 seconds)
+          const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+            .from('room-media')
+            .createSignedUrl(path, 86400);
+          
+          if (signedUrlError || !signedUrlData) {
+            console.error(`Error creating signed URL for ${path}:`, signedUrlError);
+            return null;
+          }
+          
+          console.log(`Created signed URL for ${path}: ${signedUrlData.signedUrl.substring(0, 100)}...`);
+          
+          return {
+            filename: file.name,
+            path,
+            url: signedUrlData.signedUrl,
+            metadata: file.metadata,
+            created_at: file.created_at
+          };
+        }));
+        
+        // Filter out null values (failed to create signed URLs)
+        const validImages = images.filter(img => img !== null);
+        
+        return {
+          roomName,
+          images: validImages
+        };
+      })
+    );
+    
+    // Filter out null values and sort rooms
+    const validRooms = roomsWithImages.filter(room => room !== null);
+    console.log(`Returning ${validRooms.length} valid rooms with images`);
+    
+    res.status(200).json({
+      success: true,
+      data: validRooms
+    });
+  } catch (error: any) {
+    console.error('Error listing property images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error listing property images',
+      error: error.message
+    });
+  }
+});
+
 export default router; 
