@@ -51,7 +51,7 @@
 
 <!-- - [ ] LegalQAChatbot - (Ben - GPT wrapper, realtime Supabase DB) -->
 
-- [ ] DocumentStorageService - (TBD) - Secure system for storing and organizing all tenant/landlord documents including leases, receipts, insurance documents, correspondence, and inspection reports.
+- [ ] DocumentStorageService - (Ben) - Secure system for storing and organizing all tenant/landlord documents including leases, receipts, insurance documents, correspondence, and inspection reports.
 
 <!-- - [ ] ReminderNotificationService - (Arvin - push notifications for iOS) - Sends timely push notifications about rent payments, lease expiration, inspections, maintenance visits, and document renewals. (not for now)-->
 
