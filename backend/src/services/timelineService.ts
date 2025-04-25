@@ -149,7 +149,10 @@ export class TimelineService {
    */
   async getUpcomingEvents(userId: string, daysAhead: number = 30): Promise<TimelineEvent[]> {
     const today = new Date();
-    const cutoffDate = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    const cutoffDate = new Date(today);
     cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
     
     // First, get all upcoming events with property details
@@ -164,7 +167,7 @@ export class TimelineService {
       `)
       .eq('user_id', userId)
       .lte('start_date', format(cutoffDate, 'yyyy-MM-dd'))
-      .gte('start_date', format(today, 'yyyy-MM-dd'))
+      .gte('start_date', todayStr)
       .order('start_date', { ascending: true });
 
     if (error) {
@@ -172,28 +175,46 @@ export class TimelineService {
       return [];
     }
 
+    console.log(`Found ${data.length} upcoming events for user ${userId}`);
+    
     // Filter events based on notification_days_before
     const notifiableEvents = data.filter(event => {
-      // If the event doesn't have notification_days_before set, don't show a notification
-      if (!event.notification_days_before) return false;
-      
       // If the event is already completed, don't show a notification
       if (event.is_completed) return false;
       
-      // Calculate the notification date for this event
+      // Parse event date
       const eventDate = parseISO(event.start_date);
+      eventDate.setHours(0, 0, 0, 0);
+      const eventDateStr = format(eventDate, 'yyyy-MM-dd');
+      
+      // Always include events happening today
+      if (eventDateStr === todayStr) {
+        console.log(`Including event ${event.id} (${event.title}) because it's happening today`);
+        return true;
+      }
+      
+      // If the event doesn't have notification_days_before set, don't show a notification
+      if (!event.notification_days_before && event.notification_days_before !== 0) {
+        return false;
+      }
+      
+      // Calculate the notification date for this event
       const notificationDate = new Date(eventDate);
       notificationDate.setDate(notificationDate.getDate() - event.notification_days_before);
+      notificationDate.setHours(0, 0, 0, 0);
       
       // Notification should appear if today is on or after the notification date
       // but before or on the actual event date
-      return (
-        (today >= notificationDate && today <= eventDate) ||
-        // Special case for same-day notifications
-        (format(today, 'yyyy-MM-dd') === format(eventDate, 'yyyy-MM-dd') && 
-         event.notification_days_before === 0)
-      );
+      const shouldNotify = today >= notificationDate && today <= eventDate;
+      
+      if (shouldNotify) {
+        console.log(`Including event ${event.id} (${event.title}) with notification_days_before=${event.notification_days_before}`);
+      }
+      
+      return shouldNotify;
     });
+
+    console.log(`Filtered to ${notifiableEvents.length} notifiable events`);
 
     // Add property_name to each event for easier display
     const eventsWithPropertyNames = notifiableEvents.map(event => ({

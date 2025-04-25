@@ -65,25 +65,31 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
 
   // Generate notification text based on days until event
   const getNotificationText = (event: TimelineEvent): string => {
+    // Get today's date without time components
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of day for accurate day comparison
+    today.setHours(0, 0, 0, 0);
+    const todayStr = format(today, 'yyyy-MM-dd');
     
+    // Parse event date without time components
     const eventDate = parseISO(event.start_date);
-    eventDate.setHours(0, 0, 0, 0); // Set to start of day for accurate day comparison
+    const eventDateStr = format(eventDate, 'yyyy-MM-dd');
     
-    // Calculate days difference without time components
+    // Check if the event is today
+    if (eventDateStr === todayStr) {
+      return "Today";
+    }
+    
+    // Calculate days difference for future events
     const daysUntil = Math.round(
       (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
     
-    if (daysUntil === 0) {
-      return "Today";
-    } else if (daysUntil === 1) {
+    if (daysUntil === 1) {
       return "Tomorrow";
     } else if (daysUntil > 1) {
       return `In ${daysUntil} days`;
     } else {
-      // If the event date is in the past (shouldn't normally happen due to backend filtering)
+      // If the event date is in the past
       return "Overdue";
     }
   };
@@ -136,7 +142,8 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
                         const timeIndicator = getNotificationText(event);
                         const showTimeIndicator = timeIndicator === "Today" || 
                                                timeIndicator === "Tomorrow" ||
-                                               timeIndicator === "Overdue";
+                                               timeIndicator === "Overdue" ||
+                                               timeIndicator.startsWith("In ");
                         
                         return (
                           <li key={event.id} className="px-4 py-3 hover:bg-gray-50">
