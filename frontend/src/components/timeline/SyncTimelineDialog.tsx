@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, Loader2, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface SyncTimelineDialogProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export default function SyncTimelineDialog({
 }: SyncTimelineDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   
   // Sync options
   const [generateRentDueDates, setGenerateRentDueDates] = useState(true);
@@ -29,8 +31,14 @@ export default function SyncTimelineDialog({
   const [hasUpfrontRent, setHasUpfrontRent] = useState(false);
   const [upfrontRentAmount, setUpfrontRentAmount] = useState<number>(0);
 
+  // Only mount the portal on the client
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
   // Hide dialog when not open
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handleConfirm = async () => {
     try {
@@ -56,9 +64,17 @@ export default function SyncTimelineDialog({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+  // Render the dialog as a portal to ensure it's at the top level of the DOM
+  const modalContent = (
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      {/* Semi-transparent backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50" 
+        onClick={onClose}
+      ></div>
+      
+      {/* Dialog content */}
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full relative z-10 mx-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium">Generate Events for {propertyName}</h2>
           <button 
@@ -172,4 +188,7 @@ export default function SyncTimelineDialog({
       </div>
     </div>
   );
+
+  // Use createPortal to render the modal at the root level
+  return createPortal(modalContent, document.body);
 } 
