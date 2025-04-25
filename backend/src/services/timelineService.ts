@@ -182,7 +182,7 @@ export class TimelineService {
       console.error('Error fetching property data:', propertyError);
       return false;
     }
-    
+
     if (!property) {
       console.error('Property not found:', { propertyId, userId });
       return false;
@@ -204,11 +204,18 @@ export class TimelineService {
     try {
       console.log('Syncing timeline for property:', propertyId);
       console.log('Property data:', JSON.stringify(property, null, 2));
+      console.log('Sync options:', JSON.stringify(options, null, 2));
+      
+      // Add sync options to property object for use in generator methods
+      const propertyWithOptions = {
+        ...property,
+        sync_options: options
+      };
       
       // Generate lease-related events if requested
       if (options.autoGenerateLeaseEvents !== false && property.lease_start_date && property.lease_end_date) {
         console.log('Generating lease events with dates:', property.lease_start_date, property.lease_end_date);
-        await this.generateLeaseEvents(property, userId);
+        await this.generateLeaseEvents(propertyWithOptions, userId);
       } else {
         console.log('Skipping lease events generation:', {
           autoGenerateLeaseEvents: options.autoGenerateLeaseEvents,
@@ -220,7 +227,7 @@ export class TimelineService {
       // Generate rent due dates if requested
       if (options.autoGenerateRentDueDates !== false && property.lease_start_date && property.rent_amount) {
         console.log('Generating rent due dates with:', property.lease_start_date, property.rent_amount);
-        await this.generateRentDueDates(property, userId);
+        await this.generateRentDueDates(propertyWithOptions, userId);
       } else {
         console.log('Skipping rent due dates generation:', {
           autoGenerateRentDueDates: options.autoGenerateRentDueDates,
@@ -402,6 +409,18 @@ export class TimelineService {
     if (leaseStart.getDate() > rentDueDay) {
       currentDate = addMonths(currentDate, 1);
       console.log(`Lease starts after the rent due day, moving to next month: ${format(currentDate, 'yyyy-MM-dd')}`);
+    }
+    
+    // Check upfront rent paid from options
+    const syncOptions = property.sync_options || {};
+    const upfrontRentPaid = syncOptions.upfrontRentPaid || 0;
+    
+    console.log(`Upfront rent paid: ${upfrontRentPaid} months`);
+    
+    // Skip the months that have been paid upfront
+    if (upfrontRentPaid > 0) {
+      console.log(`Skipping ${upfrontRentPaid} months due to upfront payment`);
+      currentDate = addMonths(currentDate, upfrontRentPaid);
     }
     
     console.log(`Generating rent due events from ${format(currentDate, 'yyyy-MM-dd')} to ${format(leaseEnd, 'yyyy-MM-dd')}`);

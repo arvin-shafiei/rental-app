@@ -12,7 +12,8 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
-  Home
+  Home,
+  Check
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, addDays, isSameDay, compareAsc, compareDesc } from 'date-fns';
 import { 
@@ -25,6 +26,7 @@ import {
   TimelineEventType,
   TimelineEventRecurrence
 } from '@/lib/timelineApi';
+import SyncTimelineDialog from './SyncTimelineDialog';
 
 interface PropertyTimelineProps {
   propertyId: string;
@@ -37,6 +39,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
   const [newEvent, setNewEvent] = useState({  
     title: '',
@@ -82,14 +85,25 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     }
   }, [propertyId, fetchEvents]);
   
-  const handleSyncTimeline = async () => {
+  const handleSyncTimeline = () => {
+    setShowSyncDialog(true);
+  };
+  
+  const handleSyncConfirm = async (options: {
+    autoGenerateRentDueDates: boolean;
+    autoGenerateLeaseEvents: boolean;
+    upfrontRentPaid: number;
+  }) => {
     try {
       setSyncing(true);
       setError(null);
       
+      console.log('Syncing timeline with options:', options);
+      
       await syncPropertyTimeline(propertyId, {
-        autoGenerateRentDueDates: true,
-        autoGenerateLeaseEvents: true
+        autoGenerateRentDueDates: options.autoGenerateRentDueDates,
+        autoGenerateLeaseEvents: options.autoGenerateLeaseEvents,
+        upfrontRentPaid: options.upfrontRentPaid
       });
       
       // Refresh events
@@ -97,6 +111,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     } catch (err: any) {
       setError(err.message || 'Failed to sync timeline');
       console.error('Error syncing timeline:', err);
+      throw err; // Re-throw to be caught by the dialog
     } finally {
       setSyncing(false);
     }
@@ -241,7 +256,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
             ) : (
               <RefreshCw className="h-4 w-4 mr-1" />
             )}
-            Sync Events
+            Generate Events
           </button>
           <button
             onClick={handleAddEvent}
@@ -252,6 +267,14 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
           </button>
         </div>
       </div>
+      
+      {/* Sync Timeline Dialog */}
+      <SyncTimelineDialog
+        isOpen={showSyncDialog}
+        onClose={() => setShowSyncDialog(false)}
+        onConfirm={handleSyncConfirm}
+        propertyName={propertyName}
+      />
       
       {error && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
@@ -444,7 +467,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
               className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Sync Timeline
+              Generate Events
             </button>
             <button
               onClick={handleAddEvent}

@@ -58,6 +58,7 @@ export interface UpdateTimelineEventDTO extends Partial<CreateTimelineEventDTO> 
 export interface TimelineSyncOptions {
   autoGenerateRentDueDates?: boolean;
   autoGenerateLeaseEvents?: boolean;
+  upfrontRentPaid?: number;
 }
 
 /**

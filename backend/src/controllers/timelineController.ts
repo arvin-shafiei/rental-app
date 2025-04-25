@@ -28,7 +28,11 @@ export const updateTimelineEvent = async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const eventData: UpdateTimelineEventDTO = req.body;
+  const eventId = req.params.id;
+  const eventData: UpdateTimelineEventDTO = {
+    id: eventId,
+    ...req.body
+  };
   
   try {
     const event = await timelineService.updateEvent(eventData, userId);
