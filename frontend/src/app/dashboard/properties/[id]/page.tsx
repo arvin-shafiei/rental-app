@@ -200,17 +200,19 @@ function PropertyImageUpload({ propertyId }: { propertyId: string }) {
       {uploadResult && (
         <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
           <h3 className="text-lg font-medium mb-2 text-green-700">Upload Successful!</h3>
-          <div className="bg-white p-2 rounded overflow-x-auto">
-            <pre className="text-sm text-gray-800">{JSON.stringify(uploadResult, null, 2)}</pre>
-          </div>
           {uploadResult.data?.url && (
-            <div className="mt-3">
-              <h4 className="text-md font-medium mb-1">Image Preview:</h4>
-              <img 
-                src={uploadResult.data.url} 
-                alt="Uploaded" 
-                className="max-w-full max-h-64 object-contain border rounded"
-              />
+            <div className="mt-2">
+              <p className="text-sm text-gray-600 mb-2">
+                Image uploaded to: {uploadResult.data.roomName}
+              </p>
+              <div className="mt-3">
+                <h4 className="text-md font-medium mb-1">Image Preview:</h4>
+                <img 
+                  src={uploadResult.data.url} 
+                  alt="Uploaded" 
+                  className="max-w-full max-h-64 object-contain border rounded"
+                />
+              </div>
             </div>
           )}
         </div>
