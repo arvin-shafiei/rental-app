@@ -11,6 +11,7 @@ interface SyncTimelineDialogProps {
     autoGenerateRentDueDates: boolean;
     autoGenerateLeaseEvents: boolean;
     upfrontRentPaid: number;
+    rentDueDay: number;
   }) => Promise<void>;
   propertyName: string;
 }
@@ -30,6 +31,7 @@ export default function SyncTimelineDialog({
   const [generateLeaseEvents, setGenerateLeaseEvents] = useState(true);
   const [hasUpfrontRent, setHasUpfrontRent] = useState(false);
   const [upfrontRentAmount, setUpfrontRentAmount] = useState<number>(0);
+  const [rentDueDay, setRentDueDay] = useState<number>(1);
 
   // Only mount the portal on the client
   useEffect(() => {
@@ -48,7 +50,8 @@ export default function SyncTimelineDialog({
       await onConfirm({
         autoGenerateRentDueDates: generateRentDueDates,
         autoGenerateLeaseEvents: generateLeaseEvents,
-        upfrontRentPaid: hasUpfrontRent ? upfrontRentAmount : 0
+        upfrontRentPaid: hasUpfrontRent ? upfrontRentAmount : 0,
+        rentDueDay: rentDueDay
       });
       
       // Reset form state after successful submission
@@ -116,6 +119,24 @@ export default function SyncTimelineDialog({
               Generate rent due dates
             </label>
           </div>
+
+          {generateRentDueDates && (
+            <div className="space-y-2 pl-6">
+              <label htmlFor="rent-due-day" className="block text-sm font-medium text-gray-700">
+                Day of month rent is due
+              </label>
+              <input
+                id="rent-due-day"
+                type="number"
+                min="1"
+                max="31"
+                value={rentDueDay}
+                onChange={(e) => setRentDueDay(Number(e.target.value))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">Default is the 1st day of each month</p>
+            </div>
+          )}
 
           <div className="flex items-center space-x-2">
             <input

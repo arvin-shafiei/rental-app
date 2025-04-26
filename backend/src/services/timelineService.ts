@@ -388,6 +388,9 @@ export class TimelineService {
       rent_amount: property.rent_amount
     });
     
+    // Debug: Log the entire sync_options object
+    console.log('DEBUG - Full sync_options:', JSON.stringify(property.sync_options, null, 2));
+    
     // Ensure we have valid dates by parsing them correctly
     let leaseStart;
     try {
@@ -439,25 +442,43 @@ export class TimelineService {
       leaseEnd: leaseEnd.toISOString()
     });
     
+    // Get the sync options
+    const syncOptions = property.sync_options || {};
+    
+    // Debug: Log syncOptions type and check for rentDueDay
+    console.log('DEBUG - syncOptions type:', typeof syncOptions);
+    console.log('DEBUG - syncOptions has rentDueDay?', 'rentDueDay' in syncOptions);
+    console.log('DEBUG - rentDueDay value is:', syncOptions.rentDueDay);
+    console.log('DEBUG - rentDueDay type is:', typeof syncOptions.rentDueDay);
+    
     // Get the day of the month that rent is due (default to 1st if not specified)
-    // Make sure property_details is parsed properly from JSON
-    interface PropertyDetails {
-      rent_due_day?: number;
-      currency?: string;
-      [key: string]: any;
+    // First check if it's specified in sync options
+    let rentDueDay: number;
+    
+    if (syncOptions.rentDueDay !== undefined) {
+      rentDueDay = syncOptions.rentDueDay;
+      console.log(`Using rent due day from sync options: ${rentDueDay}`);
+    } else {
+      // Fall back to property details if not in sync options
+      interface PropertyDetails {
+        rent_due_day?: number;
+        currency?: string;
+        [key: string]: any;
+      }
+      
+      let propertyDetails: PropertyDetails = {};
+      try {
+        propertyDetails = typeof property.property_details === 'string' 
+          ? JSON.parse(property.property_details) 
+          : (property.property_details || {});
+        console.log('Parsed property details:', propertyDetails);
+      } catch (e) {
+        console.log('Error parsing property_details:', e);
+      }
+      
+      rentDueDay = propertyDetails.rent_due_day || 1;
     }
     
-    let propertyDetails: PropertyDetails = {};
-    try {
-      propertyDetails = typeof property.property_details === 'string' 
-        ? JSON.parse(property.property_details) 
-        : (property.property_details || {});
-      console.log('Parsed property details:', propertyDetails);
-    } catch (e) {
-      console.log('Error parsing property_details:', e);
-    }
-    
-    const rentDueDay = propertyDetails.rent_due_day || 1;
     console.log(`Rent due day is set to: ${rentDueDay}`);
     
     // Calculate the first rent due date (adjust to the specified day of month)
@@ -470,7 +491,6 @@ export class TimelineService {
     }
     
     // Check upfront rent paid from options
-    const syncOptions = property.sync_options || {};
     const upfrontRentPaid = syncOptions.upfrontRentPaid || 0;
     
     console.log(`Upfront rent paid: ${upfrontRentPaid} months`);
@@ -507,6 +527,18 @@ export class TimelineService {
       // Create rent due event if it doesn't exist
       if (!existingEvent) {
         console.log(`Creating rent due event for ${eventDate}`);
+        
+        // Need to get currency info for display
+        let currency = 'GBP';
+        let propertyDetails: { currency?: string } = {};
+        
+        try {
+          propertyDetails = typeof property.property_details === 'string' 
+            ? JSON.parse(property.property_details) 
+            : (property.property_details || {});
+        } catch (e) {
+          console.log('Error parsing property_details for currency:', e);
+        }
         
         // Format the currency display
         const currencySymbol = propertyDetails.currency === 'USD' ? '$' : 

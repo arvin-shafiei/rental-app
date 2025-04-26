@@ -88,6 +88,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     autoGenerateRentDueDates: boolean;
     autoGenerateLeaseEvents: boolean;
     upfrontRentPaid: number;
+    rentDueDay: number;
   }) => {
     try {
       setSyncing(true);
@@ -98,7 +99,8 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
       await syncPropertyTimeline(propertyId, {
         autoGenerateRentDueDates: options.autoGenerateRentDueDates,
         autoGenerateLeaseEvents: options.autoGenerateLeaseEvents,
-        upfrontRentPaid: options.upfrontRentPaid
+        upfrontRentPaid: options.upfrontRentPaid,
+        rentDueDay: options.rentDueDay
       });
       
       // Refresh events
