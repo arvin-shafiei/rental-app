@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
-import { Home, Building } from 'lucide-react';
+import { Home, Building, FileText } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 
 export default function DashboardLayout({
@@ -28,6 +28,7 @@ export default function DashboardLayout({
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/dashboard/properties', label: 'Properties', icon: Building },
+    { href: '/dashboard/contract-scanner', label: 'Contract Scanner', icon: FileText },
   ];
 
   return (
