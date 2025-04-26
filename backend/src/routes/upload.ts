@@ -392,4 +392,80 @@ router.get('/property/:propertyId/images', authenticateUser, async (req: Request
   }
 });
 
+// Delete an image
+router.delete('/image', authenticateUser, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { imagePath } = req.body;
+    const propertyId = req.query.propertyId as string;
+    
+    if (!imagePath) {
+      res.status(400).json({
+        success: false,
+        message: 'imagePath is required in the request body'
+      });
+      return;
+    }
+    
+    if (!propertyId) {
+      res.status(400).json({
+        success: false,
+        message: 'propertyId query parameter is required'
+      });
+      return;
+    }
+    
+    const user = (req as any).user;
+    const userId = user.id;
+    
+    // Check if the property exists and belongs to the user
+    const property = await propertyService.getPropertyById(propertyId, userId);
+    
+    if (!property) {
+      res.status(404).json({
+        success: false,
+        message: `Property with ID ${propertyId} not found or you don't have access to it`
+      });
+      return;
+    }
+    
+    // Verify that the image path starts with the correct user and property ID
+    // This is a security check to prevent users from deleting other users' images
+    const expectedPathPrefix = `${userId}/${propertyId}/images/`;
+    if (!imagePath.startsWith(expectedPathPrefix)) {
+      res.status(403).json({
+        success: false,
+        message: 'You do not have permission to delete this image'
+      });
+      return;
+    }
+    
+    // Delete the file from Supabase storage
+    const { error } = await supabaseAdmin.storage
+      .from('room-media')
+      .remove([imagePath]);
+    
+    if (error) {
+      console.error('Error deleting image:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error deleting image',
+        error: error.message
+      });
+      return;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Image deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting image',
+      error: error.message
+    });
+  }
+});
+
 export default router; 
