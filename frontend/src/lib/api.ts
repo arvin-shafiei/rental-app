@@ -121,6 +121,16 @@ export const deletePropertyDocument = async (documentPath: string) => {
 };
 
 /**
+ * Delete a property image
+ */
+export const deletePropertyImage = async (propertyId: string, imagePath: string) => {
+  return fetchFromApi(`/upload/image?propertyId=${propertyId}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ imagePath })
+  });
+};
+
+/**
  * Test the backend connection with an authenticated request
  * This calls the /protected endpoint which requires authentication
  */

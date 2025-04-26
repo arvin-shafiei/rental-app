@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Image, Loader2, Home, X } from 'lucide-react';
-import { getPropertyImages } from '@/lib/api';
+import { Image, Loader2, Home, X, Trash2 } from 'lucide-react';
+import { getPropertyImages, deletePropertyImage } from '@/lib/api';
 
 interface PropertyImageViewerProps {
   propertyId: string;
@@ -11,34 +11,35 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
-  useEffect(() => {
-    async function fetchPropertyImages() {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        console.log('Fetching property images for property:', propertyId);
-        const result = await getPropertyImages(propertyId);
-        console.log('Property images API response:', result);
-        
-        if (result.success && result.data) {
-          // Sort rooms by name for consistent display
-          const sortedRooms = [...result.data].sort((a, b) => 
-            a.roomName.localeCompare(b.roomName)
-          );
-          setRooms(sortedRooms);
-        } else {
-          setError('Failed to load property images');
-        }
-      } catch (error) {
-        console.error('Error fetching property images:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load property images');
-      } finally {
-        setLoading(false);
+  const fetchPropertyImages = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Fetching property images for property:', propertyId);
+      const result = await getPropertyImages(propertyId);
+      console.log('Property images API response:', result);
+      
+      if (result.success && result.data) {
+        // Sort rooms by name for consistent display
+        const sortedRooms = [...result.data].sort((a, b) => 
+          a.roomName.localeCompare(b.roomName)
+        );
+        setRooms(sortedRooms);
+      } else {
+        setError('Failed to load property images');
       }
+    } catch (error) {
+      console.error('Error fetching property images:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load property images');
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     if (propertyId) {
       fetchPropertyImages();
     }
@@ -52,6 +53,32 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     setSelectedImage(null);
   };
 
+  const handleDeleteImage = async (e: React.MouseEvent, imagePath: string) => {
+    e.stopPropagation(); // Prevent image modal from opening
+    
+    if (isDeleting) return; // Prevent multiple clicks
+    
+    if (!confirm('Are you sure you want to delete this image? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setIsDeleting(true);
+      setError(null);
+      
+      await deletePropertyImage(propertyId, imagePath);
+      
+      // Refresh the images after deletion
+      await fetchPropertyImages();
+      
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete image');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="mt-6 flex justify-center items-center py-10">
@@ -63,7 +90,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
   if (error) {
     return (
       <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-        <p>Error loading images: {error}</p>
+        <p>Error: {error}</p>
       </div>
     );
   }
@@ -115,15 +142,26 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {room.images.map((image: any, imgIndex: number) => {
-                // Create a direct reference to the image URL
+                // Create a direct reference to the image URL and path
                 const imageUrl = image.url;
+                const imagePath = image.path;
                 
                 return (
                   <div 
                     key={imgIndex} 
-                    className="relative overflow-hidden rounded-lg shadow-sm border border-gray-200 aspect-square cursor-pointer hover:shadow-md transition-shadow bg-gray-100 flex items-center justify-center"
+                    className="relative overflow-hidden rounded-lg shadow-sm border border-gray-200 aspect-square cursor-pointer hover:shadow-md transition-shadow bg-gray-100 flex items-center justify-center group"
                     onClick={() => openImageModal(imageUrl)}
                   >
+                    {/* Delete button overlay - show on hover */}
+                    <button
+                      className="absolute top-2 right-2 bg-red-100 hover:bg-red-600 hover:text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity z-40"
+                      onClick={(e) => handleDeleteImage(e, imagePath)}
+                      disabled={isDeleting}
+                      title="Delete image"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    
                     {/* Simple image display with fallback */}
                     <div className="w-full h-full">
                       {/* Loading spinner - shown until image loads */}
