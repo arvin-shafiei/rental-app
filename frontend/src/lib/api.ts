@@ -77,7 +77,7 @@ export const createProperty = async (propertyData: any) => {
 };
 
 /**
- * Update a property
+ * Update an existing property
  */
 export const updateProperty = async (id: string, propertyData: any) => {
   return fetchFromApi(`/properties/${id}`, {
@@ -143,4 +143,37 @@ export const testBackendConnection = async () => {
     console.error('Backend connection test failed:', error);
     throw error;
   }
+};
+
+/**
+ * Get users for a property
+ */
+export const getPropertyUsers = async (propertyId: string) => {
+  return fetchFromApi(`/property-users?propertyId=${propertyId}`);
+};
+
+/**
+ * Add a user to a property
+ */
+export const addUserToProperty = async (propertyId: string, userData: { user_id: string, user_role: string }) => {
+  return fetchFromApi(`/property-users?propertyId=${propertyId}`, {
+    method: 'POST',
+    body: JSON.stringify(userData)
+  });
+};
+
+/**
+ * Remove a user from a property
+ */
+export const removeUserFromProperty = async (propertyId: string, userId: string) => {
+  return fetchFromApi(`/property-users/${propertyId}/${userId}`, {
+    method: 'DELETE'
+  });
+};
+
+/**
+ * Look up a user by email
+ */
+export const lookupUserByEmail = async (email: string) => {
+  return fetchFromApi(`/users/lookup?email=${encodeURIComponent(email)}`);
 }; 

@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Loader2, Trash } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Trash, Users } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import PropertyTimeline from '@/components/timeline/PropertyTimeline';
 import TabButton from '@/components/ui/TabButton';
 import PropertyDetails from '@/components/properties/PropertyDetails';
@@ -12,6 +13,7 @@ import PropertyImageUpload from '@/components/properties/PropertyImageUpload';
 import PropertyImageViewer from '@/components/properties/PropertyImageViewer';
 import PropertyDocumentUpload from '@/components/properties/PropertyDocumentUpload';
 import PropertyDocumentViewer from '@/components/properties/PropertyDocumentViewer';
+import PropertyTenants from '@/components/properties/PropertyTenants';
 import type { Property } from '@/components/properties/PropertyDetails';
 
 export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
@@ -23,6 +25,20 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   const [formData, setFormData] = useState<Partial<Property>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const supabase = createClientComponentClient();
+
+  // Get the current user ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        setCurrentUserId(data.user.id);
+      }
+    };
+    
+    fetchCurrentUser();
+  }, [supabase.auth]);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -193,6 +209,12 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             >
               Timeline
             </TabButton>
+            <TabButton 
+              active={activeTab === 'tenants'} 
+              onClick={() => setActiveTab('tenants')}
+            >
+              Tenants
+            </TabButton>
           </div>
         </div>
         
@@ -226,6 +248,10 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
           
           {activeTab === 'timeline' && (
             <PropertyTimeline propertyId={property.id} propertyName={property.name} />
+          )}
+          
+          {activeTab === 'tenants' && (
+            <PropertyTenants propertyId={property.id} currentUserId={currentUserId || ''} />
           )}
         </div>
       </div>

@@ -5,6 +5,8 @@ import propertiesRouter from './properties';
 import timelineRouter from './timeline';
 import calendarRouter from './calendar';
 import documentRouter from './document';
+import propertyUsersRouter from './propertyUsers';
+import usersRouter from './users';
 
 // Initialize main router
 const router = Router();
@@ -16,5 +18,7 @@ router.use('/properties', propertiesRouter);
 router.use('/timeline', timelineRouter);
 router.use('/calendar', calendarRouter);
 router.use('/documents', documentRouter);
+router.use('/property-users', propertyUsersRouter);
+router.use('/users', usersRouter);
 
 export default router; 
