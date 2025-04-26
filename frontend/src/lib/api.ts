@@ -104,6 +104,23 @@ export const getPropertyImages = async (propertyId: string) => {
 };
 
 /**
+ * Get property documents
+ */
+export const getPropertyDocuments = async (propertyId: string) => {
+  console.log(`Fetching property documents for propertyId: ${propertyId}`);
+  return fetchFromApi(`/documents/${propertyId}`);
+};
+
+/**
+ * Delete a property document
+ */
+export const deletePropertyDocument = async (documentPath: string) => {
+  return fetchFromApi(`/documents/${documentPath}`, {
+    method: 'DELETE'
+  });
+};
+
+/**
  * Test the backend connection with an authenticated request
  * This calls the /protected endpoint which requires authentication
  */

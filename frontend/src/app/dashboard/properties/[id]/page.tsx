@@ -10,6 +10,8 @@ import TabButton from '@/components/ui/TabButton';
 import PropertyDetails from '@/components/properties/PropertyDetails';
 import PropertyImageUpload from '@/components/properties/PropertyImageUpload';
 import PropertyImageViewer from '@/components/properties/PropertyImageViewer';
+import PropertyDocumentUpload from '@/components/properties/PropertyDocumentUpload';
+import PropertyDocumentViewer from '@/components/properties/PropertyDocumentViewer';
 import type { Property } from '@/components/properties/PropertyDetails';
 
 export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
@@ -180,6 +182,12 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               Images
             </TabButton>
             <TabButton 
+              active={activeTab === 'documents'} 
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents
+            </TabButton>
+            <TabButton 
               active={activeTab === 'timeline'} 
               onClick={() => setActiveTab('timeline')}
             >
@@ -206,6 +214,13 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             <>
               <PropertyImageUpload propertyId={property.id} />
               <PropertyImageViewer propertyId={property.id} />
+            </>
+          )}
+          
+          {activeTab === 'documents' && (
+            <>
+              <PropertyDocumentUpload propertyId={property.id} />
+              <PropertyDocumentViewer propertyId={property.id} />
             </>
           )}
           
