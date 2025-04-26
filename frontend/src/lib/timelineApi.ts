@@ -60,6 +60,7 @@ export interface TimelineSyncOptions {
   autoGenerateRentDueDates?: boolean;
   autoGenerateLeaseEvents?: boolean;
   upfrontRentPaid?: number;
+  rentDueDay?: number;
 }
 
 /**

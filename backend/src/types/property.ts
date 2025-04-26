@@ -42,4 +42,21 @@ export interface CreatePropertyDTO {
 
 export interface UpdatePropertyDTO extends Partial<CreatePropertyDTO> {
   id: string;
+}
+
+export type PropertyUserRole = 'owner' | 'tenant';
+
+export interface PropertyUser {
+  id: string;
+  property_id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  user_role: PropertyUserRole;
+}
+
+export interface CreatePropertyUserDTO {
+  property_id: string;
+  user_id: string;
+  user_role: PropertyUserRole;
 } 
