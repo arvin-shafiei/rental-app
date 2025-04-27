@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Loader2, Trash, Users } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase/client';
 import PropertyTimeline from '@/components/timeline/PropertyTimeline';
 import TabButton from '@/components/ui/TabButton';
 import PropertyDetails from '@/components/properties/PropertyDetails';
@@ -26,19 +26,27 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const supabase = createClientComponentClient();
 
-  // Get the current user ID
+  // Get the current user ID using the same approach as dashboard/page.tsx
   useEffect(() => {
     const fetchCurrentUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        setCurrentUserId(data.user.id);
+      try {
+        const { data } = await supabase.auth.getSession();
+        
+        if (data.session) {
+          const userId = data.session.user.id;
+          console.log('Current user ID from session:', userId);
+          setCurrentUserId(userId);
+        } else {
+          console.log('No session found');
+        }
+      } catch (err) {
+        console.error('Error fetching session:', err);
       }
     };
     
     fetchCurrentUser();
-  }, [supabase.auth]);
+  }, []);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -251,7 +259,10 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
           )}
           
           {activeTab === 'tenants' && (
-            <PropertyTenants propertyId={property.id} currentUserId={currentUserId || ''} />
+            <PropertyTenants 
+              propertyId={property.id} 
+              currentUserId={currentUserId || ''} 
+            />
           )}
         </div>
       </div>

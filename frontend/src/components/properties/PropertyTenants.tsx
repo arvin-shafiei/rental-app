@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Loader2, UserPlus, Trash2, Search, UserCheck, AlertCircle } from 'lucide-react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { fetchFromApi } from '@/lib/api';
 
 interface User {
@@ -31,12 +30,28 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
   const [foundUser, setFoundUser] = useState<any | null>(null);
   const [addingUser, setAddingUser] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const supabase = createClientComponentClient();
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+
+  // Debug logs
+  useEffect(() => {
+    console.log('PropertyTenants component mounted');
+    console.log('Current user ID:', currentUserId);
+    console.log('Property ID:', propertyId);
+  }, []);
 
   // Fetch users on component mount
   useEffect(() => {
-    fetchPropertyUsers();
+    if (propertyId) {
+      fetchPropertyUsers();
+    }
   }, [propertyId]);
+
+  // Debug logs for IDs
+  useEffect(() => {
+    console.log("Current User ID:", currentUserId);
+    console.log("Property Owner ID:", ownerId);
+    console.log("Is current user the owner?", currentUserId === ownerId);
+  }, [currentUserId, ownerId]);
 
   // Fallback function to get property owner data if not present in users list
   const fetchPropertyOwner = async () => {
@@ -49,6 +64,9 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
       
       if (propertyInfo && propertyInfo.user_id) {
         console.log("Found property owner ID:", propertyInfo.user_id);
+        
+        // Set the owner ID in state
+        setOwnerId(propertyInfo.user_id);
         
         // Get the owner's profile information
         const ownerProfile = await fetchFromApi(`/users/lookup?id=${propertyInfo.user_id}`);
@@ -101,6 +119,12 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
       // Map through users to ensure complete data
       let formattedUsers = usersList.map((user: any) => {
         console.log(`User: ${user.user_id}, Role: ${user.user_role}, Email: ${user.profile?.email}`);
+        
+        // If we found an owner, set the owner ID
+        if (user.user_role === 'owner') {
+          setOwnerId(user.user_id);
+        }
+        
         return user;
       });
       
@@ -125,6 +149,7 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
       console.error("Error fetching property users:", err);
       setError(err.message || 'Failed to load tenants');
     } finally {
+      // Always set loading to false to prevent infinite loading state
       setLoading(false);
     }
   };
@@ -204,10 +229,14 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
     }
   };
 
+  // Check if the current user is the owner
+  const isCurrentUserOwner = Boolean(currentUserId) && Boolean(ownerId) && currentUserId === ownerId;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-10">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2">Loading users...</span>
       </div>
     );
   }
@@ -226,108 +255,111 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
           </div>
         )}
         
-        <div className="bg-white rounded-md shadow-sm p-4 border mb-6">
-          <h3 className="text-lg font-medium mb-3 text-gray-800">Add New Tenant</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Invite a user by entering their email address. The user must already have an account in the system.
-          </p>
-          
-          <form onSubmit={handleLookupUser} className="flex flex-col space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                User Email
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  <Search className="h-5 w-5 text-gray-400" />
+        {/* Only show the Add New Tenant section if current user is the owner */}
+        {isCurrentUserOwner && (
+          <div className="bg-white rounded-md shadow-sm p-4 border mb-6">
+            <h3 className="text-lg font-medium mb-3 text-gray-800">Add New Tenant</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Invite a user by entering their email address. The user must already have an account in the system.
+            </p>
+            
+            <form onSubmit={handleLookupUser} className="flex flex-col space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  User Email
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                    <Search className="h-5 w-5 text-gray-400" />
+                  </div>
                 </div>
-              </div>
-              {searchError && (
-                <div className="mt-2 text-sm text-red-600">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p>{searchError}</p>
-                      {searchError.includes("No user found") && (
-                        <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
-                          <li>Make sure the user has already created an account</li>
-                          <li>Check for typos in the email address</li>
-                          <li>The email must match exactly what was used during registration</li>
-                        </ul>
-                      )}
+                {searchError && (
+                  <div className="mt-2 text-sm text-red-600">
+                    <div className="flex items-start">
+                      <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p>{searchError}</p>
+                        {searchError.includes("No user found") && (
+                          <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
+                            <li>Make sure the user has already created an account</li>
+                            <li>Check for typos in the email address</li>
+                            <li>The email must match exactly what was used during registration</li>
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-            
-            <button
-              type="submit"
-              disabled={searchingUser}
-              className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-            >
-              {searchingUser ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Searching...
-                </>
-              ) : (
-                'Lookup User'
-              )}
-            </button>
-          </form>
-          
-          {foundUser && (
-            <div className="mt-4 p-3 border rounded-md bg-blue-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    {foundUser.avatar_url ? (
-                      <img
-                        src={foundUser.avatar_url}
-                        alt={foundUser.display_name || foundUser.email}
-                        className="h-10 w-10 rounded-full"
-                      />
-                    ) : (
-                      <span className="text-gray-500 text-sm">
-                        {(foundUser.display_name || foundUser.email || 'User').charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">{foundUser.display_name || 'User'}</p>
-                    <p className="text-sm text-gray-500">{foundUser.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleAddUser(foundUser.id)}
-                  disabled={addingUser}
-                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  {addingUser ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Add as Tenant
-                    </>
-                  )}
-                </button>
+                )}
               </div>
-            </div>
-          )}
-        </div>
+              
+              <button
+                type="submit"
+                disabled={searchingUser}
+                className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              >
+                {searchingUser ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Searching...
+                  </>
+                ) : (
+                  'Lookup User'
+                )}
+              </button>
+            </form>
+            
+            {foundUser && (
+              <div className="mt-4 p-3 border rounded-md bg-blue-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                      {foundUser.avatar_url ? (
+                        <img
+                          src={foundUser.avatar_url}
+                          alt={foundUser.display_name || foundUser.email}
+                          className="h-10 w-10 rounded-full"
+                        />
+                      ) : (
+                        <span className="text-gray-500 text-sm">
+                          {(foundUser.display_name || foundUser.email || 'User').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">{foundUser.display_name || 'User'}</p>
+                      <p className="text-sm text-gray-500">{foundUser.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleAddUser(foundUser.id)}
+                    disabled={addingUser}
+                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    {addingUser ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Add as Tenant
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="bg-white rounded-md shadow-sm">
           <div className="px-4 py-5 sm:px-6 border-b">
@@ -375,8 +407,9 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
                     </div>
                   </div>
                   
-                  {/* Only show remove button for non-owners or if there are multiple owners */}
-                  {(user.user_role !== 'owner' || users.filter(u => u.user_role === 'owner').length > 1) && 
+                  {/* Only show remove button if current user is owner and not removing themselves */}
+                  {isCurrentUserOwner && 
+                   (user.user_role !== 'owner' || users.filter(u => u.user_role === 'owner').length > 1) && 
                    user.user_id !== currentUserId && (
                     <button
                       onClick={() => handleRemoveUser(user.user_id)}
@@ -394,7 +427,7 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
               <UserPlus className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No tenants</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Add tenants to this property using the form above.
+                {isCurrentUserOwner ? 'Add tenants to this property using the form above.' : 'No tenants have been added to this property yet.'}
               </p>
             </div>
           )}
