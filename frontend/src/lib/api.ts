@@ -214,4 +214,56 @@ export const removeUserFromProperty = async (propertyId: string, userId: string)
  */
 export const lookupUserByEmail = async (email: string) => {
   return fetchFromApi(`/users/lookup?email=${encodeURIComponent(email)}`);
+};
+
+/**
+ * Create a new agreement
+ */
+export interface CheckItem {
+  text: string;
+  checked: boolean;
+}
+
+export interface AgreementData {
+  title: string;
+  propertyId: string;
+  checkItems: CheckItem[];
+}
+
+export const createAgreement = async (agreementData: AgreementData) => {
+  return fetchFromApi('/agreements', {
+    method: 'POST',
+    body: JSON.stringify(agreementData)
+  });
+};
+
+/**
+ * Get all agreements
+ */
+export const getAgreements = async () => {
+  return fetchFromApi('/agreements');
+};
+
+/**
+ * Get agreements for a specific property
+ */
+export const getPropertyAgreements = async (propertyId: string) => {
+  return fetchFromApi(`/agreements?propertyId=${propertyId}`);
+};
+
+/**
+ * Get a specific agreement
+ */
+export const getAgreement = async (agreementId: string) => {
+  return fetchFromApi(`/agreements/${agreementId}`);
+};
+
+/**
+ * Update an agreement
+ */
+export const updateAgreement = async (agreementId: string, agreementData: Partial<AgreementData>) => {
+  return fetchFromApi(`/agreements/${agreementId}`, {
+    method: 'PUT',
+    body: JSON.stringify(agreementData)
+  });
 }; 
