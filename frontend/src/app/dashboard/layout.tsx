@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
-import { Home, Building, FileText } from 'lucide-react';
+import { Home, Building, FileText, Calendar, CheckSquare } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 
 export default function DashboardLayout({
@@ -28,6 +28,7 @@ export default function DashboardLayout({
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/dashboard/properties', label: 'Properties', icon: Building },
+    { href: '/dashboard/agreement-builder', label: 'Agreement Builder', icon: CheckSquare },
     { href: '/dashboard/contract-scanner', label: 'Contract Scanner', icon: FileText },
   ];
 
