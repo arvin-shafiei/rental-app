@@ -86,14 +86,15 @@ interface PropertyUser {
   user_id: string;
   property_id: string;
   user_role: string;
-  user_email?: string;
-  user_name?: string;
+  email?: string;
+  name?: string;
 }
 
 interface CheckItem {
   id: string;
   text: string;
   checked: boolean;
+  assignedTo?: string | null;
 }
 
 export default function AgreementBuilder() {
@@ -102,7 +103,7 @@ export default function AgreementBuilder() {
   const [propertyUsers, setPropertyUsers] = useState<PropertyUser[]>([]);
   const [agreementTitle, setAgreementTitle] = useState<string>('');
   const [checkItems, setCheckItems] = useState<CheckItem[]>([
-    { id: '1', text: '', checked: false }
+    { id: '1', text: '', checked: false, assignedTo: null }
   ]);
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -164,7 +165,7 @@ export default function AgreementBuilder() {
   const handleAddCheckItem = () => {
     setCheckItems([
       ...checkItems,
-      { id: Date.now().toString(), text: '', checked: false }
+      { id: Date.now().toString(), text: '', checked: false, assignedTo: null }
     ]);
   };
 
@@ -212,7 +213,8 @@ export default function AgreementBuilder() {
       // Transform the check items to match the API format
       const apiCheckItems: ApiCheckItem[] = validCheckItems.map(item => ({
         text: item.text,
-        checked: item.checked
+        checked: item.checked,
+        assigned_to: item.assignedTo || null
       }));
 
       // Create the agreement data
@@ -233,7 +235,7 @@ export default function AgreementBuilder() {
       // Reset the form after successful submission
       setAgreementTitle('');
       setSelectedProperty('');
-      setCheckItems([{ id: '1', text: '', checked: false }]);
+      setCheckItems([{ id: '1', text: '', checked: false, assignedTo: null }]);
     } catch (error) {
       console.error('Error creating agreement:', error);
       toast({
@@ -286,7 +288,7 @@ export default function AgreementBuilder() {
                   <ul className="text-sm text-black">
                     {propertyUsers.map((user) => (
                       <li key={user.id}>
-                        {user.user_name || user.user_email || user.user_id}
+                        {user.name || user.email || user.user_id}
                       </li>
                     ))}
                   </ul>
@@ -330,6 +332,26 @@ export default function AgreementBuilder() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCheckItemChange(item.id, e.target.value)}
                     className="flex-1"
                   />
+                  {selectedProperty && (
+                    <Select
+                      value={item.assignedTo || ""}
+                      onValueChange={(value: string) => 
+                        setCheckItems(
+                          checkItems.map(ci => 
+                            ci.id === item.id ? { ...ci, assignedTo: value || null } : ci
+                          )
+                        )
+                      }
+                      placeholder="Assign to..."
+                    >
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {propertyUsers.map((user) => (
+                        <SelectItem key={user.user_id} value={user.user_id}>
+                          {user.name || user.email || user.user_id}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  )}
                 </div>
               ))}
             </div>

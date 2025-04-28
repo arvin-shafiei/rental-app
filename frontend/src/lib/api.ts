@@ -222,6 +222,9 @@ export const lookupUserByEmail = async (email: string) => {
 export interface CheckItem {
   text: string;
   checked: boolean;
+  assigned_to?: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
 }
 
 export interface AgreementData {

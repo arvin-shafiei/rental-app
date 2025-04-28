@@ -3,6 +3,9 @@ import { supabase, supabaseAdmin } from './supabase';
 interface CheckItem {
   text: string;
   checked: boolean;
+  assigned_to?: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
 }
 
 interface CreateAgreementDTO {

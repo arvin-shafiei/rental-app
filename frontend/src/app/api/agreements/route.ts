@@ -1,101 +1,144 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase/client';
 
-// GET handler for agreements
+// GET agreements handler
 export async function GET(req: NextRequest) {
   try {
-    // Authenticate user
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Get authorization header directly from the incoming request
+    const authHeader = req.headers.get('authorization');
+    console.log('Authorization header from client:', authHeader ? 'exists' : 'missing');
+    
+    if (!authHeader) {
+      console.log('No authorization header found in request, returning 401');
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // Parse query params
     const url = new URL(req.url);
     const propertyId = url.searchParams.get('propertyId');
-
-    // Prepare query
-    let query = supabase
-      .from('agreements')
-      .select(`
-        *,
-        property:properties(id, name, address)
-      `);
-
-    // Filter by property if provided
+    
+    // Forward the request to the backend with the same authorization header
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+    let endpoint = '/agreements';
+    
+    // Add query parameters if provided
     if (propertyId) {
-      query = query.eq('property_id', propertyId);
+      endpoint += `?propertyId=${propertyId}`;
     }
-
-    // Execute query
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching agreements:', error);
-      return NextResponse.json({ error: 'Failed to fetch agreements' }, { status: 500 });
+    
+    console.log('Forwarding request to backend at:', `${backendUrl}${endpoint}`);
+    console.log('Using client authorization header');
+    
+    // Make request to the backend API to get agreements
+    const response = await fetch(`${backendUrl}${endpoint}`, {
+      headers: {
+        'Authorization': authHeader, // Forward the same auth header
+        'Content-Type': 'application/json'
+      },
+      next: { revalidate: 0 } // Don't cache this request
+    });
+    
+    console.log('Backend response status:', response.status);
+    
+    if (!response.ok) {
+      try {
+        const errorData = await response.json();
+        console.log('Backend error data:', errorData);
+        return NextResponse.json(
+          { error: errorData.message || 'Failed to fetch agreements' },
+          { status: response.status }
+        );
+      } catch (e) {
+        console.log('Could not parse error response:', e);
+        return NextResponse.json(
+          { error: 'Failed to fetch agreements' },
+          { status: response.status }
+        );
+      }
     }
-
+    
+    const data = await response.json();
+    console.log('Agreements fetched successfully:', data);
+    
     return NextResponse.json(data);
-  } catch (error) {
-    console.error('Error in agreements endpoint:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error in GET /api/agreements:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined },
+      { status: 500 }
+    );
   }
 }
 
-// POST handler for creating a new agreement
+// POST to create a new agreement
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Get authorization header directly from the incoming request
+    const authHeader = req.headers.get('authorization');
+    console.log('Authorization header from client:', authHeader ? 'exists' : 'missing');
+    
+    if (!authHeader) {
+      console.log('No authorization header found in request, returning 401');
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
-
-    // Parse request body
-    const body = await req.json();
-    const { title, propertyId, checkItems } = body;
-
+    
+    // Get the request body
+    const agreementData = await req.json();
+    
     // Validate required fields
-    if (!title || !propertyId || !checkItems || !Array.isArray(checkItems)) {
+    if (!agreementData.title || !agreementData.propertyId || !agreementData.checkItems) {
       return NextResponse.json(
         { error: 'Missing required fields: title, propertyId, and checkItems' },
         { status: 400 }
       );
     }
-
-    // Verify the user has access to the property
-    const { data: propertyAccess, error: propertyAccessError } = await supabase
-      .from('property_users')
-      .select('id')
-      .eq('property_id', propertyId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (propertyAccessError || !propertyAccess) {
-      return NextResponse.json({ error: 'You do not have access to this property' }, { status: 403 });
+    
+    // Forward the request to the backend with the same authorization header
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
+    const endpoint = '/agreements';
+    
+    console.log('Forwarding request to backend at:', `${backendUrl}${endpoint}`);
+    
+    const response = await fetch(`${backendUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader // Forward the same auth header
+      },
+      body: JSON.stringify(agreementData),
+      next: { revalidate: 0 } // Don't cache this request
+    });
+    
+    if (!response.ok) {
+      try {
+        const errorData = await response.json();
+        console.log('Backend error data:', errorData);
+        return NextResponse.json(
+          { error: errorData.message || 'Failed to create agreement' },
+          { status: response.status }
+        );
+      } catch (e) {
+        console.log('Could not parse error response:', e);
+        return NextResponse.json(
+          { error: 'Failed to create agreement' },
+          { status: response.status }
+        );
+      }
     }
-
-    // Insert agreement
-    const { data: agreement, error: agreementError } = await supabase
-      .from('agreements')
-      .insert({
-        title,
-        property_id: propertyId,
-        created_by: user.id,
-        check_items: checkItems
-      })
-      .select()
-      .single();
-
-    if (agreementError) {
-      console.error('Error creating agreement:', agreementError);
-      return NextResponse.json({ error: 'Failed to create agreement' }, { status: 500 });
-    }
-
-    return NextResponse.json(agreement);
-  } catch (error) {
-    console.error('Error in agreements endpoint:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('Error creating agreement:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
   }
 } 
