@@ -269,4 +269,26 @@ export const updateAgreement = async (agreementId: string, agreementData: Partia
     method: 'PUT',
     body: JSON.stringify(agreementData)
   });
-}; 
+};
+
+// Add a new function to update task assignments
+export async function updateAgreementTask(
+  agreementId: string,
+  taskIndex: number,
+  action: 'assign' | 'unassign' | 'complete',
+  userId?: string | null
+): Promise<any> {
+  try {
+    return fetchFromApi(`/agreements/${agreementId}/tasks`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        taskIndex,
+        action,
+        userId
+      })
+    });
+  } catch (error: any) {
+    console.error('API error updating task:', error);
+    throw error;
+  }
+} 

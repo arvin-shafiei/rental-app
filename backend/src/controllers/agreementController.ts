@@ -186,4 +186,85 @@ export class AgreementController {
       });
     }
   }
+
+  /**
+   * Get an agreement for task update (with permission checks)
+   * This helper method handles permission checks and returns the agreement
+   */
+  async getAgreementForTaskUpdate(agreementId: string, req: Request, res: Response): Promise<any> {
+    const userId = (req as any).user?.id;
+    
+    try {
+      // Get the agreement
+      const agreement = await agreementService.getAgreementById(agreementId, userId);
+      
+      if (!agreement) {
+        res.status(404).json({ error: 'Agreement not found' });
+        return null;
+      }
+      
+      // Check user's role for the property
+      const propertyId = agreement.property_id;
+      const propertyUsers = await agreementService.getPropertyUsers(propertyId);
+      
+      // Find the user's role
+      const userPropertyAccess = propertyUsers.find(
+        (pu: any) => pu.user_id === userId
+      );
+      
+      if (!userPropertyAccess) {
+        res.status(403).json({ error: 'You do not have access to this agreement' });
+        return null;
+      }
+      
+      // Store the user's role in the request for the route handler
+      (req as any).propertyRole = userPropertyAccess.user_role;
+      
+      return agreement;
+    } catch (error: any) {
+      console.error(`[AgreementController] Error fetching agreement for task update:`, error);
+      res.status(500).json({ 
+        error: 'Failed to fetch agreement', 
+        message: error.message 
+      });
+      return null;
+    }
+  }
+  
+  /**
+   * Update only the tasks for an agreement
+   * This helper method handles updating just the check items
+   */
+  async updateTasksOnly(agreementId: string, checkItems: any[], req: Request, res: Response): Promise<any> {
+    const userId = (req as any).user?.id;
+    
+    try {
+      // Update just the check items
+      const updatedAgreement = await agreementService.updateAgreementTasks(
+        agreementId,
+        checkItems,
+        userId
+      );
+      
+      return updatedAgreement;
+    } catch (error: any) {
+      console.error(`[AgreementController] Error updating tasks:`, error);
+      
+      if (error.message.includes('not found')) {
+        res.status(404).json({ error: error.message });
+        return null;
+      }
+      
+      if (error.message.includes('permission')) {
+        res.status(403).json({ error: error.message });
+        return null;
+      }
+      
+      res.status(500).json({ 
+        error: 'Failed to update tasks', 
+        message: error.message 
+      });
+      return null;
+    }
+  }
 } 

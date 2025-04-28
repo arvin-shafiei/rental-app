@@ -44,12 +44,10 @@ export class AgreementService {
     console.log(`[AgreementService] Fetching agreements for user: ${userId}${propertyId ? `, property: ${propertyId}` : ''}`);
     
     try {
+      // When filtering by property ID, we don't need to join with properties table
       let query = supabaseAdmin
         .from('agreements')
-        .select(`
-          *,
-          property:properties(id, name, address)
-        `);
+        .select('*');
 
       // Filter by property if provided
       if (propertyId) {
@@ -82,7 +80,7 @@ export class AgreementService {
         .from('agreements')
         .select(`
           *,
-          property:properties(id, name, address)
+          property:properties(id, name, address_line1, address_line2, city, postcode)
         `)
         .eq('id', agreementId)
         .single();
@@ -93,6 +91,16 @@ export class AgreementService {
           return null;
         }
         throw error;
+      }
+
+      // Transform the data to map property address fields to a single address property
+      if (data && data.property) {
+        data.property.address = [
+          data.property.address_line1,
+          data.property.address_line2,
+          data.property.city,
+          data.property.postcode
+        ].filter(Boolean).join(', ');
       }
 
       return data;
@@ -213,7 +221,7 @@ export class AgreementService {
         throw new Error(`Error updating agreement: ${error.message}`);
       }
 
-      console.log(`[AgreementService] Successfully updated agreement: ${agreementData.id}`);
+      console.log(`[AgreementService] Successfully updated agreement with id: ${data.id}`);
       return data;
     } catch (error: any) {
       console.error(`[AgreementService] Error in updateAgreement: ${error.message}`);
@@ -269,4 +277,80 @@ export class AgreementService {
       throw new Error(error.message || 'Error deleting agreement');
     }
   }
-} 
+
+  /**
+   * Get users associated with a property
+   */
+  async getPropertyUsers(propertyId: string): Promise<any[]> {
+    try {
+      // Just get the property_users data without trying to join with profiles
+      const { data, error } = await supabaseAdmin
+        .from('property_users')
+        .select('*')
+        .eq('property_id', propertyId);
+      
+      if (error) {
+        console.error(`[AgreementService] Error fetching property users: ${error.message}`);
+        throw new Error(`Error fetching property users: ${error.message}`);
+      }
+      
+      return data || [];
+    } catch (error: any) {
+      console.error(`[AgreementService] Error in getPropertyUsers: ${error.message}`);
+      throw new Error(`Error fetching property users: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update tasks for an agreement with appropriate permission handling
+   */
+  async updateAgreementTasks(
+    agreementId: string,
+    checkItems: any[],
+    userId: string
+  ): Promise<any> {
+    try {
+      console.log(`[AgreementService] Updating tasks for agreement: ${agreementId}`);
+      
+      // Get the agreement
+      const { data: agreement, error: getError } = await supabaseAdmin
+        .from('agreements')
+        .select('id, property_id, created_by')
+        .eq('id', agreementId)
+        .single();
+      
+      if (getError) {
+        console.error(`[AgreementService] Error fetching agreement: ${getError.message}`);
+        throw new Error('Failed to fetch agreement');
+      }
+      
+      if (!agreement) {
+        throw new Error('Agreement not found');
+      }
+      
+      // For task updates, we use a more permissive approach
+      // We already validated permissions in the controller / route
+      // This method specifically allows tenants to update their own task assignments
+      console.log(`[AgreementService] Updating task assignments for agreement: ${agreementId}`);
+      
+      // Update the agreement with the new check items
+      const { data: updatedAgreement, error: updateError } = await supabaseAdmin
+        .from('agreements')
+        .update({ check_items: checkItems })
+        .eq('id', agreementId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error(`[AgreementService] Error updating agreement tasks: ${updateError.message}`);
+        throw new Error('Failed to update agreement tasks');
+      }
+      
+      console.log(`[AgreementService] Successfully updated task assignments for agreement: ${agreementId}`);
+      return updatedAgreement;
+    } catch (error: any) {
+      console.error(`[AgreementService] Error in updateAgreementTasks: ${error.message}`);
+      throw error;
+    }
+  }
+}
