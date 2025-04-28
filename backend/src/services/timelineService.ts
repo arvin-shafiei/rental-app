@@ -105,43 +105,47 @@ export class TimelineService {
    * Get timeline events for a specific property
    */
   async getEventsByProperty(propertyId: string, userId: string): Promise<TimelineEvent[]> {
-    // First check if the property exists and is accessible to this user
-    // Use service role client to bypass RLS when checking property access
-    const { data: property, error: propertyError } = await supabaseAdmin
-      .from('properties')
-      .select('id, user_id')
-      .eq('id', propertyId)
-      .maybeSingle();
-
-    if (propertyError) {
-      console.error('Error fetching property:', propertyError);
+    try {
+      console.log(`Fetching timeline events for property ${propertyId} and user ${userId}`);
+      
+      // First check if the user has access to this property
+      const { data: propertyAccess, error: accessError } = await supabaseAdmin
+        .from('property_users')
+        .select('id')
+        .eq('property_id', propertyId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (accessError) {
+        console.error('Error checking property access:', accessError);
+        return [];
+      }
+      
+      if (!propertyAccess) {
+        console.error('User does not have access to this property:', { propertyId, userId });
+        return [];
+      }
+      
+      // Use our custom database function to get shared property events
+      // This function handles showing all property events to all users,
+      // but only shows one instance of Agreement events per user
+      const { data, error } = await supabaseAdmin
+        .rpc('get_property_timeline_events', {
+          p_property_id: propertyId,
+          p_user_id: userId
+        });
+      
+      if (error) {
+        console.error('Error fetching timeline events:', error);
+        return [];
+      }
+      
+      console.log(`Retrieved ${data?.length || 0} timeline events for property ${propertyId}`);
+      return data as TimelineEvent[];
+    } catch (error) {
+      console.error('Exception in getEventsByProperty:', error);
       return [];
     }
-    
-    if (!property) {
-      console.error('Property not found or user has no access:', { propertyId, userId });
-      return [];
-    }
-    
-    // Verify this property belongs to the requested user
-    if (property.user_id !== userId) {
-      console.error('User does not have access to this property:', { propertyId, userId, ownerId: property.user_id });
-      return [];
-    }
-    
-    // Now fetch the timeline events with the authenticated user
-    const { data, error } = await supabaseAdmin
-      .from('timeline_events')
-      .select('*')
-      .eq('property_id', propertyId)
-      .order('start_date', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching timeline events:', error);
-      return [];
-    }
-
-    return data as TimelineEvent[];
   }
 
   /**
