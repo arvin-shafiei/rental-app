@@ -12,7 +12,13 @@ CREATE TABLE IF NOT EXISTS agreements (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
   -- Store checklist items as JSONB for flexibility
-  -- Structure: [{ text: string, checked: boolean }]
+  -- Structure: [{ 
+  --   text: string, 
+  --   checked: boolean,
+  --   assigned_to: UUID or null,
+  --   completed_by: UUID or null,
+  --   completed_at: timestamp or null
+  -- }]
   check_items JSONB NOT NULL DEFAULT '[]'::JSONB
 );
 
@@ -63,7 +69,8 @@ CREATE POLICY agreements_insert_policy ON agreements
     )
   );
 
--- Only property owners or the creator can update agreements
+-- Allow any property user (owner, tenant) to update agreements
+-- This enables tenants to check off items and assign/self-assign tasks
 CREATE POLICY agreements_update_policy ON agreements
   FOR UPDATE USING (
     auth.uid() = created_by OR
@@ -71,7 +78,6 @@ CREATE POLICY agreements_update_policy ON agreements
       SELECT 1 FROM property_users 
       WHERE property_users.property_id = agreements.property_id 
       AND property_users.user_id = auth.uid()
-      AND property_users.user_role = 'owner'
     )
   );
 
@@ -87,6 +93,55 @@ CREATE POLICY agreements_delete_policy ON agreements
     )
   );
 
+-- Create a function to create agreement events for all property users
+CREATE OR REPLACE FUNCTION create_agreement_events()
+RETURNS TRIGGER AS $$
+DECLARE
+  property_user RECORD;
+BEGIN
+  -- Loop through all property users (tenants and owner)
+  FOR property_user IN 
+    SELECT pu.user_id 
+    FROM property_users pu
+    WHERE pu.property_id = NEW.property_id
+  LOOP
+    -- Insert event for each property user
+    INSERT INTO events (
+      user_id,
+      event_type,
+      entity_type,
+      entity_id,
+      title,
+      description,
+      is_read
+    ) VALUES (
+      property_user.user_id,
+      'agreement_created',
+      'agreement',
+      NEW.id,
+      'New Agreement: ' || NEW.title,
+      'A new agreement has been created for a property you are associated with.',
+      FALSE
+    );
+  END LOOP;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to create events when a new agreement is created
+CREATE TRIGGER after_agreement_created
+AFTER INSERT ON agreements
+FOR EACH ROW
+EXECUTE FUNCTION create_agreement_events();
+
 -- Add comments for better documentation
 COMMENT ON TABLE agreements IS 'Stores agreements created by property owners and sent to tenants';
-COMMENT ON COLUMN agreements.check_items IS 'JSON array of checkitems with text and checked status'; 
+COMMENT ON COLUMN agreements.check_items IS 'JSON array of check items with structure: 
+[{
+  text: string, 
+  checked: boolean,
+  assigned_to: UUID or null,
+  completed_by: UUID or null,
+  completed_at: timestamp or null
+}]'; 
