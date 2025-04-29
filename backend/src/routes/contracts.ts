@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -6,8 +6,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeContract } from '../services/openAiService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { storeContractSummary, getContractSummaries, getContractSummaryById } from '../services/contractService';
 
 dotenv.config();
+
+// Define a custom interface for requests that may include user info
+interface RequestWithUser extends Request {
+  user?: {
+    id: string;
+    [key: string]: any;
+  };
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -89,6 +98,14 @@ router.post('/scan', upload.single('document'), async (req, res) => {
         const buffer = await fileData.arrayBuffer();
         const analysis = await analyzeContract(Buffer.from(buffer));
         
+        // Store the analysis result in the database
+        try {
+          await storeContractSummary(analysis);
+        } catch (storageError) {
+          console.warn('Failed to store summary, but continuing:', storageError);
+          // Continue execution even if storage fails
+        }
+        
         return res.status(200).json({
           success: true,
           data: analysis
@@ -109,6 +126,14 @@ router.post('/scan', upload.single('document'), async (req, res) => {
         
         // Analyze the uploaded contract
         const analysis = await analyzeContract(req.file.path);
+        
+        // Store the analysis result in the database
+        try {
+          await storeContractSummary(analysis);
+        } catch (storageError) {
+          console.warn('Failed to store summary, but continuing:', storageError);
+          // Continue execution even if storage fails
+        }
         
         // Clean up temporary file
         fs.unlink(req.file.path, (err) => {
@@ -154,6 +179,65 @@ router.post('/scan', upload.single('document'), async (req, res) => {
     return res.status(500).json({
       success: false,
       error: `Unexpected error: ${error.message || 'Unknown error'}`
+    });
+  }
+});
+
+/**
+ * @route GET /api/contracts/summaries
+ * @desc Get contract analysis summaries with pagination
+ * @access Private
+ */
+router.get('/summaries', async (req: RequestWithUser, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    // Get the user ID from the authenticated session or query param
+    const userId = req.user?.id || req.query.userId as string;
+    
+    const summaries = await getContractSummaries(userId, limit, offset);
+    
+    return res.status(200).json({
+      success: true,
+      data: summaries
+    });
+  } catch (error: any) {
+    console.error('Error fetching contract summaries:', error);
+    return res.status(500).json({
+      success: false,
+      error: `Failed to fetch contract summaries: ${error.message || 'Unknown error'}`
+    });
+  }
+});
+
+/**
+ * @route GET /api/contracts/summaries/:id
+ * @desc Get a specific contract summary by ID
+ * @access Private
+ */
+router.get('/summaries/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const summary = await getContractSummaryById(id);
+    
+    if (!summary) {
+      return res.status(404).json({
+        success: false,
+        error: 'Contract summary not found'
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (error: any) {
+    console.error(`Error fetching contract summary with ID ${req.params.id}:`, error);
+    return res.status(500).json({
+      success: false,
+      error: `Failed to fetch contract summary: ${error.message || 'Unknown error'}`
     });
   }
 });
