@@ -193,7 +193,7 @@ export const getPropertyUsers = async (propertyId: string) => {
 /**
  * Add a user to a property
  */
-export const addUserToProperty = async (propertyId: string, userData: { user_id: string, user_role: string }) => {
+export const addUserToProperty = async (propertyId: string, userData: { user_id?: string, email?: string, user_role: string }) => {
   return fetchFromApi(`/property-users?propertyId=${propertyId}`, {
     method: 'POST',
     body: JSON.stringify(userData)
@@ -204,7 +204,7 @@ export const addUserToProperty = async (propertyId: string, userData: { user_id:
  * Remove a user from a property
  */
 export const removeUserFromProperty = async (propertyId: string, userId: string) => {
-  return fetchFromApi(`/property-users/${propertyId}/${userId}`, {
+  return fetchFromApi(`/property-users/remove?propertyId=${propertyId}&userId=${userId}`, {
     method: 'DELETE'
   });
 };
@@ -291,4 +291,14 @@ export async function updateAgreementTask(
     console.error('API error updating task:', error);
     throw error;
   }
-} 
+}
+
+/**
+ * Accept property invitation
+ */
+export const acceptInvitation = async (token: string) => {
+  return fetchFromApi(`/invitations/accept`, {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+}; 

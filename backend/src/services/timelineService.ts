@@ -149,6 +149,60 @@ export class TimelineService {
   }
 
   /**
+   * Get all timeline events for a user across all properties
+   * Unlike getUpcomingEvents, this doesn't filter based on notification settings
+   */
+  async getAllUserEvents(userId: string, daysRange: number = 90): Promise<TimelineEvent[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    console.log(`Fetching ALL timeline events for user ${userId} without date restrictions`);
+    
+    // Get all events for properties the user has access to
+    const { data: accessibleProperties, error: propertiesError } = await supabaseAdmin
+      .from('property_users')
+      .select('property_id')
+      .eq('user_id', userId);
+    
+    if (propertiesError) {
+      console.error('Error fetching accessible properties:', propertiesError);
+      return [];
+    }
+    
+    // Extract property IDs
+    const propertyIds = accessibleProperties.map(p => p.property_id);
+    console.log(`User has access to ${propertyIds.length} properties`);
+    
+    // Query timeline events - without date restrictions
+    const { data, error } = await supabaseAdmin
+      .from('timeline_events')
+      .select(`
+        *,
+        properties:property_id (
+          id,
+          name
+        )
+      `)
+      .in('property_id', propertyIds.length > 0 ? propertyIds : ['no-properties'])
+      .order('start_date', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching all user timeline events:', error);
+      return [];
+    }
+    
+    console.log(`Retrieved ${data?.length || 0} total timeline events for user ${userId}`);
+    
+    // Add property_name to each event for easier display
+    const eventsWithPropertyNames = data.map(event => ({
+      ...event,
+      property_name: event.properties?.name
+    }));
+    
+    return eventsWithPropertyNames as TimelineEvent[];
+  }
+
+  /**
    * Get upcoming events that should trigger notifications
    */
   async getUpcomingEvents(userId: string, daysAhead: number = 30): Promise<TimelineEvent[]> {

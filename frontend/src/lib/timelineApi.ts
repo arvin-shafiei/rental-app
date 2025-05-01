@@ -91,6 +91,15 @@ export const getUpcomingTimelineEvents = async (days?: number) => {
 };
 
 /**
+ * Get all timeline events for the user across all properties
+ * Unlike getUpcomingTimelineEvents, this doesn't filter based on notification settings
+ */
+export const getAllTimelineEvents = async (days?: number) => {
+  const queryParams = days ? `?days=${days}` : '';
+  return fetchFromApi(`/timeline/all${queryParams}`);
+};
+
+/**
  * Create a new timeline event
  */
 export const createTimelineEvent = async (eventData: CreateTimelineEventDTO) => {

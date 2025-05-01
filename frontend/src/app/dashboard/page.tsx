@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import BackendTest from '@/components/BackendTest';
-import { Home } from 'lucide-react';
+import { Home, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -75,6 +75,22 @@ export default function Dashboard() {
                 <div className="mt-4">
                   <Link href="/dashboard/properties" className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100">
                     View properties
+                  </Link>
+                </div>
+              </div>
+            </div>
+            
+            {/* Timeline Dashboard Item */}
+            <div className="overflow-hidden rounded-lg bg-white shadow">
+              <div className="p-5">
+                <div className="flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-blue-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Timeline</h3>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">View all upcoming events across properties</p>
+                <div className="mt-4">
+                  <Link href="/dashboard/timeline" className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                    View timeline
                   </Link>
                 </div>
               </div>

@@ -25,6 +25,7 @@ const ViewAgreementsPanel = ({
   const [selectedAgreementDetails, setSelectedAgreementDetails] = useState<Agreement | null>(null);
   const [updatingItem, setUpdatingItem] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [viewPropertyUsers, setViewPropertyUsers] = useState<PropertyUsers[]>([]);
   const [assigningItem, setAssigningItem] = useState<string | null>(null);
 
@@ -90,7 +91,18 @@ const ViewAgreementsPanel = ({
               selectedAgreementDetails.created_by === u.user_id
             );
             
-            setUserRole(currentUser?.user_role || null);
+            if (currentUser) {
+              setUserRole(currentUser.user_role || null);
+              setCurrentUserId(currentUser.user_id || null);
+            } else {
+              // Fallback - for demo purposes, use the first user with tenant role
+              // In a real app, this would come from authentication
+              const tenant = data.find(u => u.user_role === 'tenant');
+              if (tenant) {
+                setUserRole('tenant');
+                setCurrentUserId(tenant.user_id);
+              }
+            }
           }
         }
       } catch (error) {
@@ -373,6 +385,7 @@ const ViewAgreementsPanel = ({
                     item={item}
                     index={index}
                     userRole={userRole}
+                    currentUserId={currentUserId}
                     viewPropertyUsers={viewPropertyUsers}
                     updatingItem={updatingItem}
                     assigningItem={assigningItem}

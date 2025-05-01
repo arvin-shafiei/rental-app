@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Loader2, UserPlus, Trash2, Search, UserCheck, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
+import TenantLookupForm from './TenantLookupForm';
+import TenantList from './TenantList';
 
-interface User {
+export interface User {
   id: string;
   property_id: string;
   user_id: string;
@@ -25,11 +27,6 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [searchingUser, setSearchingUser] = useState(false);
-  const [foundUser, setFoundUser] = useState<any | null>(null);
-  const [addingUser, setAddingUser] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
 
   // Debug logs
@@ -173,62 +170,6 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
     }
   };
 
-  const handleLookupUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email.trim()) {
-      setSearchError('Email is required');
-      return;
-    }
-    
-    try {
-      setSearchingUser(true);
-      setSearchError(null);
-      setFoundUser(null);
-      
-      // Use the fetchFromApi helper which handles auth correctly
-      const data = await fetchFromApi(`/users/lookup?email=${encodeURIComponent(email)}`);
-      console.log("Found user:", data);
-      setFoundUser(data);
-    } catch (err: any) {
-      console.error("Error looking up user:", err);
-      
-      // Provide a more user-friendly error message for 404 responses
-      if (err.message && err.message.includes('404')) {
-        setSearchError(`No user found with email "${email}". Please check the email address and try again.`);
-      } else {
-        setSearchError(err.message || 'Failed to lookup user');
-      }
-    } finally {
-      setSearchingUser(false);
-    }
-  };
-
-  const handleAddUser = async (userId: string) => {
-    try {
-      setAddingUser(true);
-      
-      // Use the fetchFromApi helper which handles auth correctly
-      await fetchFromApi(`/property-users?propertyId=${propertyId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: userId,
-          user_role: 'tenant'
-        }),
-      });
-      
-      // Clear search and refresh user list
-      setEmail('');
-      setFoundUser(null);
-      fetchPropertyUsers();
-    } catch (err: any) {
-      console.error("Error adding user:", err);
-      setError(err.message || 'Failed to add tenant');
-    } finally {
-      setAddingUser(false);
-    }
-  };
-
   // Check if the current user is the owner
   const isCurrentUserOwner = Boolean(currentUserId) && Boolean(ownerId) && currentUserId === ownerId;
 
@@ -257,181 +198,18 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
         
         {/* Only show the Add New Tenant section if current user is the owner */}
         {isCurrentUserOwner && (
-          <div className="bg-white rounded-md shadow-sm p-4 border mb-6">
-            <h3 className="text-lg font-medium mb-3 text-gray-800">Add New Tenant</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Invite a user by entering their email address. The user must already have an account in the system.
-            </p>
-            
-            <form onSubmit={handleLookupUser} className="flex flex-col space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  User Email
-                </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-                {searchError && (
-                  <div className="mt-2 text-sm text-red-600">
-                    <div className="flex items-start">
-                      <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p>{searchError}</p>
-                        {searchError.includes("No user found") && (
-                          <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
-                            <li>Make sure the user has already created an account</li>
-                            <li>Check for typos in the email address</li>
-                            <li>The email must match exactly what was used during registration</li>
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <button
-                type="submit"
-                disabled={searchingUser}
-                className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-              >
-                {searchingUser ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Searching...
-                  </>
-                ) : (
-                  'Lookup User'
-                )}
-              </button>
-            </form>
-            
-            {foundUser && (
-              <div className="mt-4 p-3 border rounded-md bg-blue-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      {foundUser.avatar_url ? (
-                        <img
-                          src={foundUser.avatar_url}
-                          alt={foundUser.display_name || foundUser.email}
-                          className="h-10 w-10 rounded-full"
-                        />
-                      ) : (
-                        <span className="text-gray-500 text-sm">
-                          {(foundUser.display_name || foundUser.email || 'User').charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">{foundUser.display_name || 'User'}</p>
-                      <p className="text-sm text-gray-500">{foundUser.email}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleAddUser(foundUser.id)}
-                    disabled={addingUser}
-                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                  >
-                    {addingUser ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4 mr-1" />
-                        Add as Tenant
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <TenantLookupForm 
+            onUserAdded={fetchPropertyUsers} 
+            propertyId={propertyId} 
+          />
         )}
         
-        <div className="bg-white rounded-md shadow-sm">
-          <div className="px-4 py-5 sm:px-6 border-b">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Current Tenants & Owners</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {users.length === 0 
-                ? 'No users are associated with this property yet.'
-                : 'Users with access to this property.'}
-            </p>
-          </div>
-          
-          {users.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {users.map((user) => (
-                <li key={user.id} className="px-4 py-4 sm:px-6 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      {user.profile?.avatar_url ? (
-                        <img
-                          src={user.profile.avatar_url}
-                          alt={user.profile?.display_name || ''}
-                          className="h-10 w-10 rounded-full"
-                        />
-                      ) : (
-                        <span className="text-gray-500 text-sm">
-                          {(user.profile?.display_name || 'User').charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">
-                        {user.profile?.display_name || 'User'}
-                        {user.user_id === currentUserId && <span className="ml-2 text-xs text-gray-500">(You)</span>}
-                      </p>
-                      <div className="flex items-center">
-                        <p className="text-sm text-gray-500 mr-2">{user.profile?.email}</p>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.user_role === 'owner' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {user.user_role.charAt(0).toUpperCase() + user.user_role.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Only show remove button if current user is owner and not removing themselves */}
-                  {isCurrentUserOwner && 
-                   (user.user_role !== 'owner' || users.filter(u => u.user_role === 'owner').length > 1) && 
-                   user.user_id !== currentUserId && (
-                    <button
-                      onClick={() => handleRemoveUser(user.user_id)}
-                      className="inline-flex items-center p-1 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      title="Remove user"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-6 px-4">
-              <UserPlus className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No tenants</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {isCurrentUserOwner ? 'Add tenants to this property using the form above.' : 'No tenants have been added to this property yet.'}
-              </p>
-            </div>
-          )}
-        </div>
+        <TenantList 
+          users={users}
+          currentUserId={currentUserId}
+          ownerId={ownerId}
+          onRemoveUser={handleRemoveUser}
+        />
       </div>
     </div>
   );
