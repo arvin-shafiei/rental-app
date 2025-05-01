@@ -136,3 +136,20 @@ export const syncPropertyTimeline = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getAllUserEvents = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const daysRange = req.query.days ? parseInt(req.query.days as string) : 90;
+  
+  try {
+    const events = await timelineService.getAllUserEvents(userId, daysRange);
+    return res.status(200).json(events);
+  } catch (error) {
+    console.error('Error fetching all user events:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

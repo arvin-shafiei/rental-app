@@ -5,7 +5,8 @@ import {
   deleteTimelineEvent, 
   getPropertyTimelineEvents, 
   getUpcomingEvents,
-  syncPropertyTimeline
+  syncPropertyTimeline,
+  getAllUserEvents
 } from '../controllers/timelineController';
 import { authenticateUser } from '../middleware/auth';
 
@@ -28,6 +29,9 @@ router.get('/properties/:propertyId/events', getPropertyTimelineEvents);
 
 // Get upcoming events across all properties
 router.get('/upcoming', getUpcomingEvents);
+
+// Get all user events (for timeline view - not filtered by notification settings)
+router.get('/all', getAllUserEvents);
 
 // Sync timeline for a property (generate events from property data)
 router.post('/properties/:propertyId/sync', syncPropertyTimeline);

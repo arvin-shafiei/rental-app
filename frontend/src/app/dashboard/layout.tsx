@@ -28,6 +28,7 @@ export default function DashboardLayout({
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/dashboard/properties', label: 'Properties', icon: Building },
+    { href: '/dashboard/timeline', label: 'Timeline', icon: Calendar },
     { href: '/dashboard/agreement-builder', label: 'Agreement Builder', icon: CheckSquare },
     { href: '/dashboard/contract-scanner', label: 'Contract Scanner', icon: FileText },
   ];
@@ -81,8 +82,8 @@ export default function DashboardLayout({
       </header>
       
       {/* Main content */}
-      <main>
-        <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-4 sm:px-0">
           {children}
         </div>
       </main>
