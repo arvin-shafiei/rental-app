@@ -12,6 +12,7 @@ interface ViewChecklistItemProps {
   };
   index: number;
   userRole: string | null;
+  currentUserId: string | null;
   viewPropertyUsers: PropertyUsers[];
   updatingItem: string | null;
   assigningItem: string | null;
@@ -24,6 +25,7 @@ const ViewChecklistItem = ({
   item,
   index,
   userRole,
+  currentUserId,
   viewPropertyUsers,
   updatingItem,
   assigningItem,
@@ -31,6 +33,13 @@ const ViewChecklistItem = ({
   onAssignUser,
   getUserEmailById
 }: ViewChecklistItemProps) => {
+  // Check if the current user can assign/unassign
+  const canAssign = userRole === 'owner' || 
+    (userRole === 'tenant' && !item.assigned_to);
+  
+  const canUnassign = userRole === 'owner' || 
+    (userRole === 'tenant' && item.assigned_to === currentUserId);
+
   return (
     <div className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-md">
       <Checkbox
@@ -88,20 +97,13 @@ const ViewChecklistItem = ({
                 <div className="ml-auto">
                   {!item.assigned_to ? (
                     <button 
-                      onClick={() => {
-                        // Find current user's ID
-                        const currentUser = viewPropertyUsers.find(u => u.user_role === 'tenant');
-                        if (currentUser) {
-                          onAssignUser(index, currentUser.user_id);
-                        }
-                      }}
+                      onClick={() => onAssignUser(index, currentUserId)}
                       className="text-xs text-blue-500 underline"
                     >
                       Assign to me
                     </button>
                   ) : (
-                    // Only show unassign if assigned to current user
-                    item.assigned_to === viewPropertyUsers.find(u => u.user_role === 'tenant')?.user_id && (
+                    item.assigned_to === currentUserId && (
                       <button 
                         onClick={() => onAssignUser(index, null)}
                         className="text-xs text-red-500 underline"
