@@ -4,34 +4,81 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from '@/components/ui/FormElements';
 import { acceptInvitation } from '@/lib/api';
+import { supabase } from '@/lib/supabase/client';
 
 export default function AcceptInvitationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   
   const token = searchParams.get('token');
   
+  // Check authentication status first
   useEffect(() => {
-    if (!token) {
-      setError('Invalid invitation token');
-      setIsLoading(false);
-      return;
-    }
+    const checkAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          
+          // Redirect to login with return URL
+          if (token) {
+            const returnUrl = encodeURIComponent(`/accept-invitation?token=${token}`);
+            router.push(`/auth?returnUrl=${returnUrl}`);
+          } else {
+            setError('Invalid invitation token');
+            setIsLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking authentication:', err);
+        setIsAuthenticated(false);
+        setError('Authentication error');
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [token, router]);
+  
+  // Process invitation once authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !token) return;
     
     const processInvitation = async () => {
       try {
         // Use the API helper function
-        const data = await acceptInvitation(token);
+        const response = await acceptInvitation(token);
+        
+        console.log('Invitation acceptance response:', response);
         
         toast({
           title: 'Invitation Accepted',
           description: 'You have successfully joined the property!',
         });
         
-        // Redirect to the property page
-        router.push(`/dashboard/properties/${data.data.propertyId}`);
+        // Safely extract propertyId and redirect
+        let propertyId;
+        
+        // Handle multiple possible response formats
+        if (response && response.data && response.data.propertyId) {
+          propertyId = response.data.propertyId;
+        } else if (response && response.propertyId) {
+          propertyId = response.propertyId;
+        }
+        
+        if (propertyId) {
+          // Redirect to the property page
+          router.push(`/dashboard/properties/${propertyId}`);
+        } else {
+          // If no property ID was found, redirect to dashboard
+          console.error('No propertyId found in response:', response);
+          router.push('/dashboard');
+        }
       } catch (err) {
         console.error('Error accepting invitation:', err);
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -40,7 +87,7 @@ export default function AcceptInvitationPage() {
     };
     
     processInvitation();
-  }, [token, router]);
+  }, [isAuthenticated, token, router]);
   
   if (error) {
     return (

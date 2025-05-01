@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function Auth() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,13 +22,18 @@ export default function Auth() {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        router.push('/dashboard');
+        // Redirect to returnUrl if provided, otherwise to dashboard
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl));
+        } else {
+          router.push('/dashboard');
+        }
       }
       setAuthLoading(false);
     };
     
     checkUser();
-  }, [router]);
+  }, [router, returnUrl]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +49,9 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: returnUrl 
+              ? `${window.location.origin}${decodeURIComponent(returnUrl)}` 
+              : `${window.location.origin}/dashboard`,
           }
         });
       } else {
@@ -57,7 +67,12 @@ export default function Auth() {
       }
       
       if (response.data.session) {
-        router.push('/dashboard');
+        // Redirect to returnUrl if provided, otherwise to dashboard
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl));
+        } else {
+          router.push('/dashboard');
+        }
       } else if (isSignUp) {
         // Show confirmation message for sign up
         setError('Check your email for the confirmation link.');
@@ -77,7 +92,9 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: returnUrl 
+            ? `${window.location.origin}${decodeURIComponent(returnUrl)}` 
+            : `${window.location.origin}/dashboard`
         }
       });
       
