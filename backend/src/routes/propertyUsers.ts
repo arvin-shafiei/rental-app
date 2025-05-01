@@ -57,4 +57,19 @@ router.delete(
   propertyUserController.removeUserFromProperty.bind(propertyUserController)
 );
 
+// POST accept an invitation to join a property
+router.post(
+  '/invitations/accept',
+  (req, res, next) => {
+    console.log(`[PropertyUsers API] Attempting to authenticate user for POST /invitations/accept`);
+    next();
+  },
+  authenticateUser,
+  (req, res, next) => {
+    console.log(`[PropertyUsers API] User authenticated successfully, proceeding to accept invitation`);
+    next();
+  },
+  propertyUserController.acceptInvitation.bind(propertyUserController)
+);
+
 export default router; 

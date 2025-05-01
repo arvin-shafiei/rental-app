@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from './supabase';
-import { PropertyUser, CreatePropertyUserDTO } from '../types/property';
+import { PropertyUser, CreatePropertyUserDTO, PropertyUserRole } from '../types/property';
 
 export class PropertyUserService {
   /**
@@ -126,5 +126,47 @@ export class PropertyUserService {
     const hasRole = !!data;
     console.log(`[PropertyUserService] User ${userId} ${hasRole ? 'has' : 'does not have'} role ${role} for property ${propertyId}`);
     return hasRole;
+  }
+
+  /**
+   * Get property details by ID
+   */
+  async getPropertyDetails(propertyId: string): Promise<{ data: any, error: any }> {
+    console.log(`[PropertyUserService] Getting details for property: ${propertyId}`);
+    
+    const { data, error } = await supabaseAdmin
+      .from('properties')
+      .select('*')
+      .eq('id', propertyId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error(`[PropertyUserService] Error fetching property details: ${error.message}`);
+      return { data: null, error };
+    }
+    
+    console.log(`[PropertyUserService] Found property details for ${propertyId}`);
+    return { data, error: null };
+  }
+
+  /**
+   * Get user details by ID
+   */
+  async getUserDetails(userId: string): Promise<{ data: any, error: any }> {
+    console.log(`[PropertyUserService] Getting details for user: ${userId}`);
+    
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error(`[PropertyUserService] Error fetching user details: ${error.message}`);
+      return { data: null, error };
+    }
+    
+    console.log(`[PropertyUserService] Found user details for ${userId}`);
+    return { data, error: null };
   }
 }

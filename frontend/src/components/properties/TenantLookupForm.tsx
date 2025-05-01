@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Loader2, AlertCircle, UserPlus } from 'lucide-react';
-import { fetchFromApi } from '@/lib/api';
+import { Search, Loader2, AlertCircle, UserPlus, Mail } from 'lucide-react';
+import { lookupUserByEmail, addUserToProperty } from '@/lib/api';
+import { toast } from '@/components/ui/FormElements';
 
 interface TenantLookupFormProps {
   onUserAdded: () => void;
@@ -13,6 +14,7 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
   const [foundUser, setFoundUser] = useState<any | null>(null);
   const [addingUser, setAddingUser] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [inviteMode, setInviteMode] = useState(false);
 
   const handleLookupUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,16 +29,18 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
       setSearchError(null);
       setFoundUser(null);
       
-      // Use the fetchFromApi helper which handles auth correctly
-      const data = await fetchFromApi(`/users/lookup?email=${encodeURIComponent(email)}`);
+      // Use the API helper function
+      const data = await lookupUserByEmail(email);
       console.log("Found user:", data);
       setFoundUser(data);
+      setInviteMode(false);
     } catch (err: any) {
       console.error("Error looking up user:", err);
       
       // Provide a more user-friendly error message for 404 responses
       if (err.message && err.message.includes('404')) {
-        setSearchError(`No user found with email "${email}". Please check the email address and try again.`);
+        setSearchError(`No user found with email "${email}". You can invite them by email.`);
+        setInviteMode(true);
       } else {
         setSearchError(err.message || 'Failed to lookup user');
       }
@@ -45,17 +49,19 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
     }
   };
 
-  const handleAddUser = async (userId: string) => {
+  const handleAddUser = async (userId: string, userEmail: string) => {
     try {
       setAddingUser(true);
       
-      // Use the fetchFromApi helper which handles auth correctly
-      await fetchFromApi(`/property-users?propertyId=${propertyId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: userId,
-          user_role: 'tenant'
-        }),
+      // Change: Send an invitation instead of directly adding the user
+      await addUserToProperty(propertyId, {
+        email: userEmail,
+        user_role: 'tenant'
+      });
+      
+      toast({
+        title: 'Invitation Sent',
+        description: `An invitation has been sent to ${userEmail}`,
       });
       
       // Clear search and notify parent
@@ -63,8 +69,41 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
       setFoundUser(null);
       onUserAdded();
     } catch (err: any) {
-      console.error("Error adding user:", err);
-      setSearchError(err.message || 'Failed to add tenant');
+      console.error("Error sending invitation:", err);
+      setSearchError(err.message || 'Failed to send invitation');
+    } finally {
+      setAddingUser(false);
+    }
+  };
+  
+  const handleSendInvitation = async () => {
+    if (!email.trim()) {
+      setSearchError('Email is required');
+      return;
+    }
+    
+    try {
+      setAddingUser(true);
+      
+      // Use the API helper function
+      await addUserToProperty(propertyId, {
+        email: email,
+        user_role: 'tenant'
+      });
+      
+      toast({
+        title: 'Invitation Sent',
+        description: `An invitation has been sent to ${email}`,
+      });
+      
+      // Clear search and notify parent
+      setEmail('');
+      setFoundUser(null);
+      setInviteMode(false);
+      onUserAdded();
+    } catch (err: any) {
+      console.error("Error sending invitation:", err);
+      setSearchError(err.message || 'Failed to send invitation');
     } finally {
       setAddingUser(false);
     }
@@ -72,9 +111,9 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
 
   return (
     <div className="bg-white rounded-md shadow-sm p-4 border mb-6">
-      <h3 className="text-lg font-medium mb-3 text-gray-800">Add New Tenant</h3>
+      <h3 className="text-lg font-medium mb-3 text-gray-800">Invite New Tenant</h3>
       <p className="text-sm text-gray-500 mb-4">
-        Invite a user by entering their email address. The user must already have an account in the system.
+        Enter an email address to send an invitation to join this property as a tenant. The user will need to accept the invitation to be added.
       </p>
       
       <form onSubmit={handleLookupUser} className="flex flex-col space-y-4">
@@ -101,7 +140,7 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
                 <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
                 <div>
                   <p>{searchError}</p>
-                  {searchError.includes("No user found") && (
+                  {searchError.includes("No user found") && !inviteMode && (
                     <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
                       <li>Make sure the user has already created an account</li>
                       <li>Check for typos in the email address</li>
@@ -114,20 +153,43 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
           )}
         </div>
         
-        <button
-          type="submit"
-          disabled={searchingUser}
-          className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-        >
-          {searchingUser ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Searching...
-            </>
-          ) : (
-            'Lookup User'
+        <div className="flex space-x-2">
+          <button
+            type="submit"
+            disabled={searchingUser}
+            className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          >
+            {searchingUser ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Searching...
+              </>
+            ) : (
+              'Lookup User'
+            )}
+          </button>
+          
+          {inviteMode && (
+            <button
+              type="button"
+              onClick={handleSendInvitation}
+              disabled={addingUser}
+              className="inline-flex items-center justify-center bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+            >
+              {addingUser ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Invitation
+                </>
+              )}
+            </button>
           )}
-        </button>
+        </div>
       </form>
       
       {foundUser && (
@@ -153,19 +215,19 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
               </div>
             </div>
             <button
-              onClick={() => handleAddUser(foundUser.id)}
+              onClick={() => handleAddUser(foundUser.id, foundUser.email)}
               disabled={addingUser}
               className="inline-flex items-center px-3 py-1 border border-transparent text-sm rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
               {addingUser ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  Adding...
+                  Sending...
                 </>
               ) : (
                 <>
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  Add as Tenant
+                  <Mail className="h-4 w-4 mr-1" />
+                  Send Invitation
                 </>
               )}
             </button>
