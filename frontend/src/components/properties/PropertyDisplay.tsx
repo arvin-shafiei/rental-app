@@ -61,6 +61,12 @@ export default function PropertyDisplay({ property }: PropertyDisplayProps) {
                 {property.deposit_amount ? `£${property.deposit_amount.toFixed(2)}` : 'Not specified'}
               </p>
             </div>
+            <div className="col-span-2 mt-2">
+              <p className="text-sm font-medium text-gray-500">Landlord Email</p>
+              <p className="text-black">
+                {property.landlord_email || 'Not specified'}
+              </p>
+            </div>
           </div>
         </div>
       </div>

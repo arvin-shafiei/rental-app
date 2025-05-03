@@ -604,6 +604,7 @@ export default function AddPropertyPage() {
     property_type: '',
     rent_amount: '',
     deposit_amount: '',
+    landlord_email: '',
     lease_start_date: '',
     lease_end_date: ''
   });
@@ -1100,6 +1101,24 @@ export default function AddPropertyPage() {
                     </div>
                     <p className={helperTextClass}>
                       Typically 4-6 weeks of rent
+                    </p>
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className={labelClass} htmlFor="landlord_email">
+                      Landlord Email
+                    </label>
+                    <input
+                      id="landlord_email"
+                      name="landlord_email"
+                      type="email"
+                      placeholder="e.g. landlord@example.com"
+                      value={formData.landlord_email}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                    <p className={helperTextClass}>
+                      This email will be used to contact the landlord for deposit requests and other communications
                     </p>
                   </div>
                 </div>

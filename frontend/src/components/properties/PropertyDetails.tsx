@@ -15,6 +15,7 @@ interface Property {
   postcode: string;
   country: string;
   property_type?: string;
+  landlord_email?: string;
   rent_amount?: number;
   deposit_amount?: number;
   lease_start_date?: string;
