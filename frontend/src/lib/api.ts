@@ -33,8 +33,10 @@ export const fetchFromApi = async (endpoint: string, options: RequestInit = {}) 
   };
   
   try {
-    console.log(`Making authenticated request to: /api${endpoint}`);
-    const response = await fetch(`/api${endpoint}`, {
+    // Ensure the endpoint doesn't start with a slash if we're adding /api
+    const apiEndpoint = endpoint.startsWith('/') ? `api${endpoint}` : `api/${endpoint}`;
+    
+    const response = await fetch(`/${apiEndpoint}`, {
       ...options,
       headers,
     });
@@ -99,7 +101,6 @@ export const deleteProperty = async (id: string) => {
  * Get property room images
  */
 export const getPropertyImages = async (propertyId: string) => {
-  console.log(`Fetching property images for propertyId: ${propertyId}`);
   return fetchFromApi(`/upload/property/${propertyId}/images`);
 };
 
@@ -107,7 +108,6 @@ export const getPropertyImages = async (propertyId: string) => {
  * Get property documents
  */
 export const getPropertyDocuments = async (propertyId: string) => {
-  console.log(`Fetching property documents for propertyId: ${propertyId}`);
   return fetchFromApi(`/documents/${propertyId}`);
 };
 
@@ -307,7 +307,7 @@ export const acceptInvitation = async (token: string) => {
  * Send a deposit request email to the landlord
  */
 export const sendDepositRequest = async (propertyId: string, requestData: { message: string, imageIds?: string[] }) => {
-  return fetchFromApi(`/deposit-requests?propertyId=${propertyId}`, {
+  return fetchFromApi(`deposit-requests?propertyId=${propertyId}`, {
     method: 'POST',
     body: JSON.stringify(requestData)
   });

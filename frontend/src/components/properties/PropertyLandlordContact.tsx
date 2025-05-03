@@ -38,7 +38,8 @@ export default function PropertyLandlordContact({
   landlordEmail 
 }: PropertyLandlordContactProps) {
   const [message, setMessage] = useState('');
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  // Use separate state for selections (by uniqueId) vs sending (by realId)
+  const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({});
   const [availableImages, setAvailableImages] = useState<PropertyImage[]>([]);
   const [requests, setRequests] = useState<DepositRequest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,19 +78,28 @@ Best regards,
           const images: PropertyImage[] = [];
           Object.entries(response.data).forEach(([roomId, room]: [string, any]) => {
             if (room.images && Array.isArray(room.images)) {
-              // Map each image to include the URL and a uniqueId
-              const processedImages = room.images.map((img: any) => ({
-                ...img,
-                // Create a unique ID combining the image id and room id
-                uniqueId: `${img.id}_${roomId}`,
-                url: img.url // Keep the existing URL if present
-                  || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${img.path}`
-              }));
+              const processedImages = room.images.map((img: any, index: number) => {
+                const imageId = img.id || 
+                               (img.filename ? `img_${img.filename.split('.')[0]}` : 
+                               `img_${roomId}_${index}`);
+                
+                const processedImg = {
+                  ...img,
+                  // Ensure id exists
+                  id: imageId,
+                  // Create a unique ID combining the image id and room id
+                  uniqueId: `${imageId}_${roomId}`,
+                  url: img.url // Keep the existing URL if present
+                    || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/property-images/${img.path}`
+                };
+                return processedImg;
+              });
               images.push(...processedImages);
             }
           });
-          console.log("Processed images:", images);
           setAvailableImages(images);
+        } else {
+          console.error("Failed to get images, response:", response);
         }
       } catch (err: any) {
         console.error('Error fetching property images:', err);
@@ -125,13 +135,19 @@ Best regards,
     resetMessage();
   }, [propertyName]);
 
-  // Toggle image selection
+  // Toggle image selection using uniqueId
   const toggleImageSelection = (uniqueId: string, realId: string) => {
-    setSelectedImages(prev => 
-      prev.includes(realId) 
-        ? prev.filter(id => id !== realId) 
-        : [...prev, realId]
-    );
+    setSelectedImageIds(prev => {
+      // If this uniqueId is already selected, remove it
+      if (prev[uniqueId]) {
+        const newState = {...prev};
+        delete newState[uniqueId];
+        return newState;
+      } 
+      // Otherwise, add it
+      const newState = {...prev, [uniqueId]: realId};
+      return newState;
+    });
   };
 
   // Submit deposit request
@@ -151,16 +167,15 @@ Best regards,
       if (!message.trim()) {
         throw new Error('Please enter a message to send to the landlord.');
       }
-
-      // Filter out any null or undefined image IDs
-      const validImageIds = selectedImages.filter(id => id !== null && id !== undefined);
+      
+      // Get the real image IDs from the selected map, filter out nulls
+      const validImageIds = Object.values(selectedImageIds).filter(id => id !== null && id !== undefined);
 
       const requestData = {
         message,
-        imageIds: validImageIds.length > 0 ? validImageIds : undefined
+        imageIds: validImageIds
       };
 
-      console.log('Sending deposit request with data:', requestData);
       const response = await sendDepositRequest(propertyId, requestData);
       
       if (response.success) {
@@ -174,7 +189,7 @@ Best regards,
         
         // Clear form
         resetMessage();
-        setSelectedImages([]);
+        setSelectedImageIds({});
       } else {
         throw new Error(response.message || 'Failed to send deposit request');
       }
@@ -274,13 +289,13 @@ Best regards,
           
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="message" className="block text-sm font-medium text-black mb-1">
                 Message
               </label>
               <textarea
                 id="message"
                 rows={8}
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm text-black border-gray-300 rounded-md"
                 placeholder="Enter your message to the landlord"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -316,9 +331,12 @@ Best regards,
                   {availableImages.map(image => (
                     <div
                       key={image.uniqueId}
-                      onClick={() => toggleImageSelection(image.uniqueId, image.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleImageSelection(image.uniqueId, image.id);
+                      }}
                       className={`relative cursor-pointer border rounded-md overflow-hidden h-24 ${
-                        selectedImages.includes(image.id) 
+                        selectedImageIds[image.uniqueId] 
                           ? 'ring-2 ring-blue-500 border-blue-500' 
                           : 'border-gray-200 hover:border-blue-300'
                       }`}
@@ -327,8 +345,12 @@ Best regards,
                         src={image.url}
                         alt={image.name}
                         className="w-full h-full object-cover"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleImageSelection(image.uniqueId, image.id);
+                        }}
                       />
-                      {selectedImages.includes(image.id) && (
+                      {selectedImageIds[image.uniqueId] && (
                         <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-1">
                           <Check className="w-3 h-3 text-white" />
                         </div>
@@ -339,8 +361,8 @@ Best regards,
               )}
               
               <div className="mt-1 text-sm text-gray-500">
-                {selectedImages.length > 0 
-                  ? `${selectedImages.length} image${selectedImages.length !== 1 ? 's' : ''} selected` 
+                {Object.keys(selectedImageIds).length > 0 
+                  ? `${Object.keys(selectedImageIds).length} image${Object.keys(selectedImageIds).length !== 1 ? 's' : ''} selected` 
                   : 'Click on images to attach them to your request'}
               </div>
             </div>

@@ -97,10 +97,18 @@ export async function POST(req: NextRequest) {
     
     // Get the request body
     const body = await req.json();
-    console.log('Request Body:', JSON.stringify(body, null, 2));
+    console.log('Frontend API - Request Body:', JSON.stringify(body));
+    
+    // Ensure imageIds is properly passed
+    if (body.imageIds) {
+      console.log('Frontend API - Image IDs found:', JSON.stringify(body.imageIds));
+    } else {
+      console.log('Frontend API - No image IDs in request');
+    }
     
     // Forward the request to the backend with the authorization header
     const backendUrl = `${API_URL}/deposit-requests?propertyId=${propertyId}`;
+    console.log('Making POST request to backend URL:', backendUrl);
     
     const response = await fetch(backendUrl, {
       method: 'POST',
@@ -116,6 +124,7 @@ export async function POST(req: NextRequest) {
     
     // Get the response data
     const data = await response.json();
+    console.log('Backend response data:', JSON.stringify(data));
     
     // Return the response from the backend
     return NextResponse.json(data, { status: response.status });

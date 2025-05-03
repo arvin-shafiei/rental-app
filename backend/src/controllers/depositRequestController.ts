@@ -22,9 +22,12 @@ export class DepositRequestController {
     }
     
     console.log(`[DepositRequestController] Sending deposit request for property ${propertyId} by user ${userId}`);
+    console.log(`[DepositRequestController] Full request body:`, JSON.stringify(req.body));
     
     try {
       const { message, imageIds } = req.body;
+      
+      console.log(`[DepositRequestController] Extracted imageIds:`, JSON.stringify(imageIds));
       
       if (!message || message.trim() === '') {
         res.status(400).json({
@@ -38,8 +41,13 @@ export class DepositRequestController {
         propertyId,
         userId,
         message,
-        imageIds
+        imageIds: Array.isArray(imageIds) ? imageIds : []
       };
+      
+      console.log(`[DepositRequestController] Sending data to service:`, JSON.stringify({
+        ...requestData,
+        message: requestData.message.substring(0, 50) + '...'
+      }));
       
       const emailId = await depositRequestService.sendDepositRequest(requestData);
       
