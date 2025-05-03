@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS properties (
   
   -- Property type and details
   property_type TEXT,
+  landlord_email TEXT,
   rent_amount DECIMAL(10, 2),
   deposit_amount DECIMAL(10, 2),
   lease_start_date DATE,
