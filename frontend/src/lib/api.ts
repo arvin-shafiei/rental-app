@@ -301,4 +301,21 @@ export const acceptInvitation = async (token: string) => {
     method: 'POST',
     body: JSON.stringify({ token })
   });
+};
+
+/**
+ * Send a deposit request email to the landlord
+ */
+export const sendDepositRequest = async (propertyId: string, requestData: { message: string, imageIds?: string[] }) => {
+  return fetchFromApi(`/deposit-requests?propertyId=${propertyId}`, {
+    method: 'POST',
+    body: JSON.stringify(requestData)
+  });
+};
+
+/**
+ * Get deposit request history for a property
+ */
+export const getDepositRequests = async (propertyId: string) => {
+  return fetchFromApi(`/deposit-requests?propertyId=${propertyId}`);
 }; 

@@ -9,6 +9,7 @@ import propertyUsersRouter from './propertyUsers';
 import usersRouter from './users';
 import contractsRouter from './contracts';
 import agreementsRouter from './agreements';
+import depositRequestsRouter from './depositRequests';
 
 // Initialize main router
 const router = Router();
@@ -24,5 +25,6 @@ router.use('/property-users', propertyUsersRouter);
 router.use('/users', usersRouter);
 router.use('/contracts', contractsRouter);
 router.use('/agreements', agreementsRouter);
+router.use('/deposit-requests', depositRequestsRouter);
 
 export default router; 

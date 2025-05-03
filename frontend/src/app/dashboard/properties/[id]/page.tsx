@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Loader2, Trash, Users } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Trash, Users, Mail } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
 import { supabase } from '@/lib/supabase/client';
 import PropertyTimeline from '@/components/timeline/PropertyTimeline';
@@ -14,6 +14,7 @@ import PropertyImageViewer from '@/components/properties/PropertyImageViewer';
 import PropertyDocumentUpload from '@/components/properties/PropertyDocumentUpload';
 import PropertyDocumentViewer from '@/components/properties/PropertyDocumentViewer';
 import PropertyTenants from '@/components/properties/PropertyTenants';
+import PropertyLandlordContact from '@/components/properties/PropertyLandlordContact';
 import type { Property } from '@/components/properties/PropertyDetails';
 
 export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
@@ -223,6 +224,13 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             >
               Tenants
             </TabButton>
+            <TabButton 
+              active={activeTab === 'contact'} 
+              onClick={() => setActiveTab('contact')}
+            >
+              <Mail className="w-4 h-4 mr-1" />
+              Contact Landlord
+            </TabButton>
           </div>
         </div>
         
@@ -262,6 +270,14 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             <PropertyTenants 
               propertyId={property.id} 
               currentUserId={currentUserId || ''} 
+            />
+          )}
+          
+          {activeTab === 'contact' && (
+            <PropertyLandlordContact 
+              propertyId={property.id}
+              propertyName={property.name}
+              landlordEmail={property.landlord_email}
             />
           )}
         </div>
