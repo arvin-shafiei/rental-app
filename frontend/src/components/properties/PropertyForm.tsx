@@ -208,6 +208,24 @@ export default function PropertyForm({
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
+          
+          <div className="mb-4 md:col-span-2">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="landlord_email">
+              Landlord Email
+            </label>
+            <input
+              id="landlord_email"
+              name="landlord_email"
+              type="email"
+              placeholder="e.g. landlord@example.com"
+              value={formData.landlord_email || ''}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
+            <p className="text-sm text-gray-600 mt-1">
+              This email will be used to contact the landlord for deposit requests and other communications
+            </p>
+          </div>
         </div>
       </div>
       

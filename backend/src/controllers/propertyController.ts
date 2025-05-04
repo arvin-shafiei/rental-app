@@ -1,36 +1,31 @@
 import { Request, Response } from 'express';
 import { PropertyService } from '../services/propertyService';
 import { CreatePropertyDTO, UpdatePropertyDTO } from '../types/property';
+import { BaseController } from '../utils/controllerUtils';
+import { Logger } from '../utils/loggerUtils';
 
 // Initialize the property service
 const propertyService = new PropertyService();
 
-export class PropertyController {
+export class PropertyController extends BaseController {
+  private logger = new Logger('PropertyController');
+  
   /**
    * Get all properties for the authenticated user
    */
   async getUserProperties(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
-    console.log(`[PropertyController] Getting properties for user: ${userId}`);
+    const userId = this.getUserId(req);
+    this.logger.methodStart('getUserProperties', { userId });
     
     try {
-      const user = (req as any).user;
-      const properties = await propertyService.getUserProperties(user.id);
+      const properties = await propertyService.getUserProperties(userId);
       
-      console.log(`[PropertyController] Found ${properties.length} properties for user ${userId}`);
+      this.logger.info(`Found ${properties.length} properties for user ${userId}`);
       
-      res.status(200).json({
-        success: true,
-        message: 'Properties retrieved successfully',
-        data: properties
-      });
+      this.sendSuccess(res, 'Properties retrieved successfully', properties);
     } catch (error: any) {
-      console.error(`[PropertyController] Error fetching properties for user ${userId}:`, error);
-      res.status(500).json({
-        success: false,
-        message: 'Error retrieving properties',
-        error: error.message
-      });
+      this.logger.methodError('getUserProperties', error);
+      this.sendError(res, 'Error retrieving properties', 500, error);
     }
   }
 
@@ -38,39 +33,26 @@ export class PropertyController {
    * Get a specific property by ID
    */
   async getPropertyById(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
+    const userId = this.getUserId(req);
     const propertyId = req.params.id;
     
-    console.log(`[PropertyController] Getting property ID ${propertyId} for user: ${userId}`);
+    this.logger.methodStart('getPropertyById', { userId, propertyId });
     
     try {
-      const user = (req as any).user;
-      
-      const property = await propertyService.getPropertyById(propertyId, user.id);
+      const property = await propertyService.getPropertyById(propertyId, userId);
       
       if (!property) {
-        console.log(`[PropertyController] Property ${propertyId} not found for user ${userId}`);
-        res.status(404).json({
-          success: false,
-          message: 'Property not found'
-        });
+        this.logger.info(`Property ${propertyId} not found for user ${userId}`);
+        this.sendError(res, 'Property not found', 404);
         return;
       }
       
-      console.log(`[PropertyController] Successfully retrieved property ${propertyId}`);
+      this.logger.info(`Successfully retrieved property ${propertyId}`);
       
-      res.status(200).json({
-        success: true,
-        message: 'Property retrieved successfully',
-        data: property
-      });
+      this.sendSuccess(res, 'Property retrieved successfully', property);
     } catch (error: any) {
-      console.error(`[PropertyController] Error fetching property ${propertyId}:`, error);
-      res.status(500).json({
-        success: false,
-        message: 'Error retrieving property',
-        error: error.message
-      });
+      this.logger.methodError('getPropertyById', error);
+      this.sendError(res, 'Error retrieving property', 500, error);
     }
   }
 
@@ -78,41 +60,31 @@ export class PropertyController {
    * Create a new property
    */
   async createProperty(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
+    const userId = this.getUserId(req);
     
-    console.log(`[PropertyController] Attempting to create property for user: ${userId}`);
-    console.log(`[PropertyController] Property data:`, JSON.stringify(req.body, null, 2));
+    this.logger.methodStart('createProperty', { 
+      userId,
+      body: this.logger.sanitizeParams(req.body)
+    });
     
     try {
-      const user = (req as any).user;
       const propertyData: CreatePropertyDTO = req.body;
       
       // Validate required fields
       if (!propertyData.name || !propertyData.postcode) {
-        console.log(`[PropertyController] Validation failed: Missing name or postcode`);
-        res.status(400).json({
-          success: false,
-          message: 'Name and postcode are required'
-        });
+        this.logger.info('Validation failed: Missing name or postcode');
+        this.sendError(res, 'Name and postcode are required', 400);
         return;
       }
       
-      const property = await propertyService.createProperty(user.id, propertyData);
+      const property = await propertyService.createProperty(userId, propertyData);
       
-      console.log(`[PropertyController] Property created successfully with ID: ${property.id}`);
+      this.logger.info(`Property created successfully with ID: ${property.id}`);
       
-      res.status(201).json({
-        success: true,
-        message: 'Property created successfully',
-        data: property
-      });
+      this.sendSuccess(res, 'Property created successfully', property, 201);
     } catch (error: any) {
-      console.error(`[PropertyController] Error creating property for user ${userId}:`, error);
-      res.status(500).json({
-        success: false,
-        message: 'Error creating property',
-        error: error.message
-      });
+      this.logger.methodError('createProperty', error);
+      this.sendError(res, 'Error creating property', 500, error);
     }
   }
 
@@ -120,14 +92,16 @@ export class PropertyController {
    * Update an existing property
    */
   async updateProperty(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
+    const userId = this.getUserId(req);
     const propertyId = req.params.id;
     
-    console.log(`[PropertyController] Attempting to update property ${propertyId} for user: ${userId}`);
-    console.log(`[PropertyController] Update data:`, JSON.stringify(req.body, null, 2));
+    this.logger.methodStart('updateProperty', { 
+      userId, 
+      propertyId,
+      body: this.logger.sanitizeParams(req.body)
+    });
     
     try {
-      const user = (req as any).user;
       const propertyData: Partial<CreatePropertyDTO> = req.body;
       
       // Create update DTO
@@ -136,32 +110,18 @@ export class PropertyController {
         ...propertyData
       };
       
-      const property = await propertyService.updateProperty(user.id, updateData);
+      const property = await propertyService.updateProperty(userId, updateData);
       
-      console.log(`[PropertyController] Property ${propertyId} updated successfully`);
+      this.logger.info(`Property ${propertyId} updated successfully`);
       
-      res.status(200).json({
-        success: true,
-        message: 'Property updated successfully',
-        data: property
-      });
+      this.sendSuccess(res, 'Property updated successfully', property);
     } catch (error: any) {
-      console.error(`[PropertyController] Error updating property ${propertyId}:`, error);
+      this.logger.methodError('updateProperty', error);
       
-      // Check for not found error
-      if (error.message.includes('not found')) {
-        res.status(404).json({
-          success: false,
-          message: error.message
-        });
-        return;
-      }
+      // Get appropriate status code
+      const statusCode = this.getErrorStatusCode(error);
       
-      res.status(500).json({
-        success: false,
-        message: 'Error updating property',
-        error: error.message
-      });
+      this.sendError(res, error.message, statusCode, error);
     }
   }
 
@@ -169,39 +129,24 @@ export class PropertyController {
    * Delete a property
    */
   async deleteProperty(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
+    const userId = this.getUserId(req);
     const propertyId = req.params.id;
     
-    console.log(`[PropertyController] Attempting to delete property ${propertyId} for user: ${userId}`);
+    this.logger.methodStart('deleteProperty', { userId, propertyId });
     
     try {
-      const user = (req as any).user;
+      await propertyService.deleteProperty(propertyId, userId);
       
-      await propertyService.deleteProperty(propertyId, user.id);
+      this.logger.info(`Property ${propertyId} deleted successfully`);
       
-      console.log(`[PropertyController] Property ${propertyId} deleted successfully`);
-      
-      res.status(200).json({
-        success: true,
-        message: 'Property deleted successfully'
-      });
+      this.sendSuccess(res, 'Property deleted successfully');
     } catch (error: any) {
-      console.error(`[PropertyController] Error deleting property ${propertyId}:`, error);
+      this.logger.methodError('deleteProperty', error);
       
-      // Check for not found error
-      if (error.message.includes('not found')) {
-        res.status(404).json({
-          success: false,
-          message: error.message
-        });
-        return;
-      }
+      // Get appropriate status code
+      const statusCode = this.getErrorStatusCode(error);
       
-      res.status(500).json({
-        success: false,
-        message: 'Error deleting property',
-        error: error.message
-      });
+      this.sendError(res, error.message, statusCode, error);
     }
   }
 } 
