@@ -318,4 +318,21 @@ export const sendDepositRequest = async (propertyId: string, requestData: { mess
  */
 export const getDepositRequests = async (propertyId: string) => {
   return fetchFromApi(`/deposit-requests?propertyId=${propertyId}`);
+};
+
+/**
+ * Send a repair request email to the landlord
+ */
+export const sendRepairRequest = async (propertyId: string, requestData: { message: string, imageIds?: string[] }) => {
+  return fetchFromApi(`repair-requests?propertyId=${propertyId}`, {
+    method: 'POST',
+    body: JSON.stringify(requestData)
+  });
+};
+
+/**
+ * Get repair request history for a property
+ */
+export const getRepairRequests = async (propertyId: string) => {
+  return fetchFromApi(`/repair-requests?propertyId=${propertyId}`);
 }; 

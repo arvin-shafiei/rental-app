@@ -575,7 +575,7 @@ export class DepositRequestService {
           <p>You can reply directly to this email to contact the tenant.</p>
           
           <div class="footer">
-            <p>This message was sent through Rental App on behalf of ${senderName}.</p>
+            <p>This message was sent through RentHive Property Management Platform on behalf of ${senderName}.</p>
           </div>
         </div>
       </body>
