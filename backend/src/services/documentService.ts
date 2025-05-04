@@ -2,12 +2,15 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { supabaseAdmin } from './supabase';
 import { PropertyService } from './propertyService';
+import { Logger } from '../utils/loggerUtils';
 
 export class DocumentService {
   private propertyService: PropertyService;
+  private logger: Logger;
   
   constructor() {
     this.propertyService = new PropertyService();
+    this.logger = new Logger('DocumentService');
   }
   
   /**
@@ -18,6 +21,12 @@ export class DocumentService {
     propertyId: string, 
     documentType?: string
   ): Promise<string> {
+    this.logger.methodStart('validatePropertyAndBuildPath', { 
+      userId, 
+      propertyId, 
+      documentType 
+    });
+    
     // Check if the property exists and belongs to the user
     const property = await this.propertyService.getPropertyById(propertyId, userId);
     
@@ -42,6 +51,7 @@ export class DocumentService {
       storagePath += 'general/';
     }
     
+    this.logger.info(`Built storage path: ${storagePath}`);
     return storagePath;
   }
   
@@ -56,16 +66,27 @@ export class DocumentService {
     originalFilename: string,
     mimeType: string
   ): Promise<string> {
+    this.logger.methodStart('uploadDocument', { 
+      userId, 
+      propertyId, 
+      documentType,
+      originalFilename,
+      mimeType,
+      fileSize: fileBuffer.length
+    });
+    
     // Check if the bucket exists using service role client
     const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
     
     if (listError || !buckets) {
+      this.logger.error(`Failed to check storage buckets: ${listError?.message || 'No buckets data returned'}`);
       throw new Error(`Failed to check storage buckets: ${listError?.message || 'No buckets data returned'}`);
     }
     
     const bucketExists = buckets.some(bucket => bucket.name === 'room-media');
     
     if (!bucketExists) {
+      this.logger.error('Storage bucket "room-media" does not exist');
       throw new Error('Storage bucket "room-media" does not exist');
     }
     
@@ -86,6 +107,8 @@ export class DocumentService {
     const filename = `${sanitizedName}-${timestamp}-${uniqueId}${fileExt}`;
     const fullPath = `${basePath}${filename}`;
     
+    this.logger.info(`Uploading file to Supabase storage at: ${fullPath}`);
+    
     // Upload the file to Supabase storage using service role client
     const { data, error } = await supabaseAdmin.storage
       .from('room-media')
@@ -94,8 +117,12 @@ export class DocumentService {
         upsert: false
       });
     
-    if (error) throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    if (error) {
+      this.logger.error(`Failed to upload to Supabase: ${error.message}`);
+      throw new Error(`Failed to upload to Supabase: ${error.message}`);
+    }
     
+    this.logger.info(`File uploaded successfully at: ${data.path}`);
     return data.path;
   }
   
@@ -103,6 +130,8 @@ export class DocumentService {
    * List all documents for a property
    */
   async listPropertyDocuments(userId: string, propertyId: string): Promise<any[]> {
+    this.logger.methodStart('listPropertyDocuments', { userId, propertyId });
+    
     // The base documents path: userId/propertyId/documents/
     const baseDocumentsPath = `${userId}/${propertyId}/documents`;
     
@@ -114,12 +143,14 @@ export class DocumentService {
       });
     
     if (foldersError) {
-      console.error('Error listing document type folders:', foldersError);
+      this.logger.error(`Error listing document type folders: ${foldersError.message}`);
       throw new Error(`Failed to list document types: ${foldersError.message}`);
     }
     
     // Filter directories (document types)
     const filteredDocTypeFolders = documentTypeFolders || [];
+    
+    this.logger.info(`Found ${filteredDocTypeFolders.length} document type folders`);
     
     // Get documents for each document type
     const documentsGroupedByType = await Promise.all(
@@ -135,6 +166,8 @@ export class DocumentService {
         // Full path to document type directory
         const docTypePath = `${baseDocumentsPath}/${documentType}`;
         
+        this.logger.info(`Listing documents in: ${docTypePath}`);
+        
         // List all files in the document type directory
         const { data: documentFiles, error: documentsError } = await supabaseAdmin.storage
           .from('room-media')
@@ -143,7 +176,7 @@ export class DocumentService {
           });
         
         if (documentsError) {
-          console.error(`Error listing documents for type ${documentType}:`, documentsError);
+          this.logger.error(`Error listing documents for type ${documentType}: ${documentsError.message}`);
           return {
             documentType,
             documents: []
@@ -152,6 +185,8 @@ export class DocumentService {
         
         // Filter out directories
         const validDocumentFiles = documentFiles?.filter(file => file.metadata !== null) || [];
+        
+        this.logger.info(`Found ${validDocumentFiles.length} documents in ${documentType}`);
         
         // Generate URLs for each document
         const documents = await Promise.all(validDocumentFiles.map(async file => {
@@ -163,7 +198,7 @@ export class DocumentService {
             .createSignedUrl(path, 86400);
           
           if (signedUrlError || !signedUrlData) {
-            console.error(`Error creating signed URL for ${path}:`, signedUrlError);
+            this.logger.error(`Error creating signed URL for ${path}: ${signedUrlError?.message}`);
             return null;
           }
           
@@ -187,20 +222,28 @@ export class DocumentService {
     );
     
     // Filter out null values
-    return documentsGroupedByType.filter(docType => docType !== null);
+    const result = documentsGroupedByType.filter(docType => docType !== null);
+    this.logger.info(`Returning ${result.length} document categories`);
+    
+    return result;
   }
   
   /**
    * Delete a document
    */
   async deleteDocument(documentPath: string): Promise<void> {
+    this.logger.methodStart('deleteDocument', { documentPath });
+    
     // Delete the file from Supabase storage
     const { error } = await supabaseAdmin.storage
       .from('room-media')
       .remove([documentPath]);
     
     if (error) {
+      this.logger.error(`Failed to delete document: ${error.message}`);
       throw new Error(`Failed to delete document: ${error.message}`);
     }
+    
+    this.logger.info(`Document deleted successfully: ${documentPath}`);
   }
 } 

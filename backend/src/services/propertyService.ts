@@ -1,13 +1,17 @@
 import { supabase, supabaseAdmin } from './supabase';
 import { Property, CreatePropertyDTO, UpdatePropertyDTO } from '../types/property';
+import { Logger } from '../utils/loggerUtils';
+import { DbUtils } from '../utils/dbUtils';
 
 export class PropertyService {
+  private logger = new Logger('PropertyService');
+  
   /**
    * Get all properties for a user
    * This includes properties they own and properties they're associated with as tenants
    */
   async getUserProperties(userId: string): Promise<Property[]> {
-    console.log(`[PropertyService] Fetching properties for user: ${userId}`);
+    this.logger.methodStart('getUserProperties', { userId });
     
     try {
       // First, get properties owned by the user
@@ -28,7 +32,7 @@ export class PropertyService {
       
       // If there are no properties the user has access to, just return owned properties
       if (propertyUsers.length === 0) {
-        console.log(`[PropertyService] Found ${ownedProperties?.length || 0} properties for user`);
+        this.logger.info(`Found ${ownedProperties?.length || 0} properties for user`);
         return ownedProperties || [];
       }
       
@@ -54,10 +58,10 @@ export class PropertyService {
         new Map(combinedProperties.map(item => [item.id, item])).values()
       );
       
-      console.log(`[PropertyService] Found ${uniqueProperties.length} properties for user`);
+      this.logger.info(`Found ${uniqueProperties.length} properties for user`);
       return uniqueProperties;
     } catch (error: any) {
-      console.error(`[PropertyService] Error fetching properties: ${error.message}`);
+      this.logger.methodError('getUserProperties', error);
       throw new Error(`Error fetching properties: ${error.message}`);
     }
   }
@@ -66,7 +70,7 @@ export class PropertyService {
    * Get a single property by ID
    */
   async getPropertyById(propertyId: string, userId: string): Promise<Property | null> {
-    console.log(`[PropertyService] Fetching property: ${propertyId} for user: ${userId}`);
+    this.logger.methodStart('getPropertyById', { propertyId, userId });
     
     try {
       // First, check if the user is the owner of the property
@@ -96,23 +100,9 @@ export class PropertyService {
       }
       
       // The user has access, so get the property details
-      const { data: property, error: propertyError } = await supabaseAdmin
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single();
-        
-      if (propertyError) {
-        if (propertyError.code === 'PGRST116') { // No rows returned
-          console.log(`[PropertyService] No property found with id: ${propertyId}`);
-          return null;
-        }
-        throw propertyError;
-      }
-      
-      return property;
+      return await DbUtils.getById<Property>('properties', propertyId);
     } catch (error: any) {
-      console.error(`[PropertyService] Error fetching property: ${error.message}`);
+      this.logger.methodError('getPropertyById', error);
       throw new Error(`Error fetching property: ${error.message}`);
     }
   }
@@ -121,85 +111,81 @@ export class PropertyService {
    * Create a new property (using service role for security)
    */
   async createProperty(userId: string, propertyData: CreatePropertyDTO): Promise<Property> {
-    console.log(`[PropertyService] Creating property for user: ${userId}`);
+    this.logger.methodStart('createProperty', { 
+      userId,
+      propertyData: this.logger.sanitizeParams(propertyData)
+    });
     
-    // Use supabaseAdmin with service role key for elevated permissions
-    const { data: property, error: createError } = await supabaseAdmin
-      .from('properties')
-      .insert([{ ...propertyData, user_id: userId }])
-      .select()
-      .single();
-    
-    if (createError) {
-      console.error(`[PropertyService] Error creating property: ${createError.message}`);
-      throw new Error(`Error creating property: ${createError.message}`);
+    try {
+      const property = await DbUtils.insert<Property>('properties', { 
+        ...propertyData, 
+        user_id: userId 
+      });
+      
+      this.logger.info(`Successfully created property with id: ${property.id}`);
+      // Note: The property owner is automatically added to property_users table by a database trigger
+      
+      return property;
+    } catch (error: any) {
+      this.logger.methodError('createProperty', error);
+      throw new Error(`Error creating property: ${error.message}`);
     }
-    
-    console.log(`[PropertyService] Successfully created property with id: ${property.id}`);
-    // Note: The property owner is automatically added to property_users table by a database trigger
-    
-    return property;
   }
 
   /**
    * Update an existing property (using service role for security)
    */
   async updateProperty(userId: string, propertyData: UpdatePropertyDTO): Promise<Property> {
-    // Verify the property belongs to the user first
-    const existingProperty = await this.getPropertyById(propertyData.id, userId);
+    this.logger.methodStart('updateProperty', { 
+      userId,
+      propertyId: propertyData.id,
+      propertyData: this.logger.sanitizeParams(propertyData)
+    });
     
-    if (!existingProperty) {
-      throw new Error('Property not found or you do not have permission to update it');
+    try {
+      // Verify the property belongs to the user first
+      const existingProperty = await this.getPropertyById(propertyData.id, userId);
+      
+      if (!existingProperty) {
+        throw new Error('Property not found or you do not have permission to update it');
+      }
+      
+      // Remove id from the update data
+      const { id, ...updateData } = propertyData;
+      
+      // Update using DbUtils
+      const property = await DbUtils.update<Property>('properties', id, updateData);
+      
+      this.logger.info(`Successfully updated property: ${id}`);
+      return property;
+    } catch (error: any) {
+      this.logger.methodError('updateProperty', error);
+      throw error; // Preserve the original error
     }
-    
-    // Remove id from the update data
-    const { id, ...updateData } = propertyData;
-    
-    console.log(`[PropertyService] Updating property: ${id} for user: ${userId}`);
-    
-    // Update the property with service role (backend only)
-    const { data: property, error } = await supabaseAdmin
-      .from('properties')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error(`[PropertyService] Error updating property: ${error.message}`);
-      throw new Error(`Error updating property: ${error.message}`);
-    }
-    
-    console.log(`[PropertyService] Successfully updated property: ${id}`);
-    return property;
   }
 
   /**
    * Delete a property
    */
   async deleteProperty(propertyId: string, userId: string): Promise<void> {
-    // Verify the property belongs to the user first
-    const existingProperty = await this.getPropertyById(propertyId, userId);
+    this.logger.methodStart('deleteProperty', { propertyId, userId });
     
-    if (!existingProperty) {
-      throw new Error('Property not found or you do not have permission to delete it');
+    try {
+      // Verify the property belongs to the user first
+      const existingProperty = await this.getPropertyById(propertyId, userId);
+      
+      if (!existingProperty) {
+        throw new Error('Property not found or you do not have permission to delete it');
+      }
+      
+      // Delete using DbUtils
+      await DbUtils.delete('properties', propertyId);
+      
+      this.logger.info(`Successfully deleted property: ${propertyId}`);
+      // Note: property_users records are automatically deleted by CASCADE constraint
+    } catch (error: any) {
+      this.logger.methodError('deleteProperty', error);
+      throw error; // Preserve the original error
     }
-    
-    console.log(`[PropertyService] Deleting property: ${propertyId}`);
-    
-    const { error } = await supabaseAdmin
-      .from('properties')
-      .delete()
-      .eq('id', propertyId)
-      .eq('user_id', userId);
-    
-    if (error) {
-      console.error(`[PropertyService] Error deleting property: ${error.message}`);
-      throw new Error(`Error deleting property: ${error.message}`);
-    }
-    
-    console.log(`[PropertyService] Successfully deleted property: ${propertyId}`);
-    // Note: property_users records are automatically deleted by CASCADE constraint
   }
 } 

@@ -1,39 +1,40 @@
 import { Request, Response } from 'express';
 import { RepairRequestService, RepairRequestData } from '../services/repairRequestService';
 import { supabaseAdmin } from '../services/supabase';
+import { BaseController } from '../utils/controllerUtils';
+import { Logger } from '../utils/loggerUtils';
+import { DbUtils } from '../utils/dbUtils';
 
 // Initialize the repair request service
 const repairRequestService = new RepairRequestService();
 
-export class RepairRequestController {
+export class RepairRequestController extends BaseController {
+  private logger = new Logger('RepairRequestController');
+  
   /**
    * Send a repair request email to landlord
    */
   async sendRepairRequest(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
-    const propertyId = req.query.propertyId as string;
+    const userId = this.getUserId(req);
     
-    if (!propertyId) {
-      res.status(400).json({
-        success: false,
-        message: 'Property ID is required'
-      });
+    if (!this.validatePropertyId(req, res)) {
       return;
     }
     
-    console.log(`[RepairRequestController] Sending repair request for property ${propertyId} by user ${userId}`);
-    console.log(`[RepairRequestController] Full request body:`, JSON.stringify(req.body));
+    const propertyId = req.query.propertyId as string;
+    
+    this.logger.methodStart('sendRepairRequest', { 
+      propertyId, 
+      userId,
+      body: req.body
+    });
     
     try {
       const { message, imageIds } = req.body;
       
-      console.log(`[RepairRequestController] Extracted imageIds:`, JSON.stringify(imageIds));
+      this.logger.info(`Extracted imageIds:`, imageIds);
       
-      if (!message || message.trim() === '') {
-        res.status(400).json({
-          success: false,
-          message: 'Message is required'
-        });
+      if (!this.validateMessage(req, res)) {
         return;
       }
       
@@ -44,28 +45,20 @@ export class RepairRequestController {
         imageIds: Array.isArray(imageIds) ? imageIds : []
       };
       
-      console.log(`[RepairRequestController] Sending data to service:`, JSON.stringify({
+      this.logger.info(`Sending data to service:`, {
         ...requestData,
         message: requestData.message.substring(0, 50) + '...'
-      }));
+      });
       
       const emailId = await repairRequestService.sendRepairRequest(requestData);
       
-      res.status(200).json({
-        success: true,
-        message: 'Repair request sent successfully',
-        data: { emailId }
-      });
+      this.sendSuccess(res, 'Repair request sent successfully', { emailId });
     } catch (error: any) {
-      console.error(`[RepairRequestController] Error sending repair request: ${error.message}`);
+      this.logger.methodError('sendRepairRequest', error);
       
-      const statusCode = error.message.includes('not found') || 
-                         error.message.includes('not set') ? 400 : 500;
+      const statusCode = this.getErrorStatusCode(error);
       
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
+      this.sendError(res, error.message, statusCode);
     }
   }
   
@@ -73,43 +66,26 @@ export class RepairRequestController {
    * Get repair request history for a property
    */
   async getRepairRequests(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
-    const propertyId = req.query.propertyId as string;
-    
-    if (!propertyId) {
-      res.status(400).json({
-        success: false,
-        message: 'Property ID is required'
-      });
+    if (!this.validatePropertyId(req, res)) {
       return;
     }
     
-    console.log(`[RepairRequestController] Getting repair requests for property ${propertyId}`);
+    const propertyId = req.query.propertyId as string;
+    
+    this.logger.methodStart('getRepairRequests', { propertyId });
     
     try {
-      // Use imported supabaseAdmin instead of req.supabaseAdmin
-      const { data: repairRequests, error } = await supabaseAdmin
-        .from('repair_requests')
-        .select('*')
-        .eq('property_id', propertyId)
-        .order('created_at', { ascending: false });
+      const repairRequests = await DbUtils.getByPropertyId(
+        'repair_requests', 
+        propertyId,
+        'created_at',
+        false
+      );
       
-      if (error) {
-        throw new Error(`Error fetching repair requests: ${error.message}`);
-      }
-      
-      res.status(200).json({
-        success: true,
-        message: 'Repair requests retrieved successfully',
-        data: repairRequests
-      });
+      this.sendSuccess(res, 'Repair requests retrieved successfully', repairRequests);
     } catch (error: any) {
-      console.error(`[RepairRequestController] Error getting repair requests: ${error.message}`);
-      
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      this.logger.methodError('getRepairRequests', error);
+      this.sendError(res, error.message);
     }
   }
 } 

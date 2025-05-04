@@ -1,39 +1,39 @@
 import { Request, Response } from 'express';
 import { DepositRequestService, DepositRequestData } from '../services/depositRequestService';
-import { supabaseAdmin } from '../services/supabase';
+import { BaseController } from '../utils/controllerUtils';
+import { Logger } from '../utils/loggerUtils';
+import { DbUtils } from '../utils/dbUtils';
 
 // Initialize the deposit request service
 const depositRequestService = new DepositRequestService();
 
-export class DepositRequestController {
+export class DepositRequestController extends BaseController {
+  private logger = new Logger('DepositRequestController');
+  
   /**
    * Send a deposit request email to landlord
    */
   async sendDepositRequest(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
-    const propertyId = req.query.propertyId as string;
+    const userId = this.getUserId(req);
     
-    if (!propertyId) {
-      res.status(400).json({
-        success: false,
-        message: 'Property ID is required'
-      });
+    if (!this.validatePropertyId(req, res)) {
       return;
     }
     
-    console.log(`[DepositRequestController] Sending deposit request for property ${propertyId} by user ${userId}`);
-    console.log(`[DepositRequestController] Full request body:`, JSON.stringify(req.body));
+    const propertyId = req.query.propertyId as string;
+    
+    this.logger.methodStart('sendDepositRequest', { 
+      propertyId, 
+      userId,
+      body: req.body
+    });
     
     try {
       const { message, imageIds } = req.body;
       
-      console.log(`[DepositRequestController] Extracted imageIds:`, JSON.stringify(imageIds));
+      this.logger.info(`Extracted imageIds:`, imageIds);
       
-      if (!message || message.trim() === '') {
-        res.status(400).json({
-          success: false,
-          message: 'Message is required'
-        });
+      if (!this.validateMessage(req, res)) {
         return;
       }
       
@@ -44,28 +44,20 @@ export class DepositRequestController {
         imageIds: Array.isArray(imageIds) ? imageIds : []
       };
       
-      console.log(`[DepositRequestController] Sending data to service:`, JSON.stringify({
+      this.logger.info(`Sending data to service:`, {
         ...requestData,
         message: requestData.message.substring(0, 50) + '...'
-      }));
+      });
       
       const emailId = await depositRequestService.sendDepositRequest(requestData);
       
-      res.status(200).json({
-        success: true,
-        message: 'Deposit request sent successfully',
-        data: { emailId }
-      });
+      this.sendSuccess(res, 'Deposit request sent successfully', { emailId });
     } catch (error: any) {
-      console.error(`[DepositRequestController] Error sending deposit request: ${error.message}`);
+      this.logger.methodError('sendDepositRequest', error);
       
-      const statusCode = error.message.includes('not found') || 
-                         error.message.includes('not set') ? 400 : 500;
+      const statusCode = this.getErrorStatusCode(error);
       
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
+      this.sendError(res, error.message, statusCode);
     }
   }
   
@@ -73,43 +65,26 @@ export class DepositRequestController {
    * Get deposit request history for a property
    */
   async getDepositRequests(req: Request, res: Response): Promise<void> {
-    const userId = (req as any).user?.id;
-    const propertyId = req.query.propertyId as string;
-    
-    if (!propertyId) {
-      res.status(400).json({
-        success: false,
-        message: 'Property ID is required'
-      });
+    if (!this.validatePropertyId(req, res)) {
       return;
     }
     
-    console.log(`[DepositRequestController] Getting deposit requests for property ${propertyId}`);
+    const propertyId = req.query.propertyId as string;
+    
+    this.logger.methodStart('getDepositRequests', { propertyId });
     
     try {
-      // Use imported supabaseAdmin instead of req.supabaseAdmin
-      const { data: depositRequests, error } = await supabaseAdmin
-        .from('deposit_requests')
-        .select('*')
-        .eq('property_id', propertyId)
-        .order('created_at', { ascending: false });
+      const depositRequests = await DbUtils.getByPropertyId(
+        'deposit_requests', 
+        propertyId,
+        'created_at',
+        false
+      );
       
-      if (error) {
-        throw new Error(`Error fetching deposit requests: ${error.message}`);
-      }
-      
-      res.status(200).json({
-        success: true,
-        message: 'Deposit requests retrieved successfully',
-        data: depositRequests
-      });
+      this.sendSuccess(res, 'Deposit requests retrieved successfully', depositRequests);
     } catch (error: any) {
-      console.error(`[DepositRequestController] Error getting deposit requests: ${error.message}`);
-      
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      this.logger.methodError('getDepositRequests', error);
+      this.sendError(res, error.message);
     }
   }
 } 

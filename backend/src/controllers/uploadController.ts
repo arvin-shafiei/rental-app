@@ -1,24 +1,27 @@
 import { Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { UploadService } from '../services/uploadService';
+import { BaseController } from '../utils/controllerUtils';
+import { Logger } from '../utils/loggerUtils';
 
-export class UploadController {
+export class UploadController extends BaseController {
   private uploadService: UploadService;
+  private logger: Logger;
 
   constructor() {
+    super();
     this.uploadService = new UploadService();
+    this.logger = new Logger('UploadController');
   }
 
   /**
    * Upload a single image
    */
   async uploadImage(req: Request, res: Response): Promise<void> {
+    this.logger.methodStart('uploadImage');
+    
     try {
       if (!req.file) {
-        res.status(400).json({
-          success: false,
-          message: 'No image file provided'
-        });
+        this.sendError(res, 'No image file provided', 400);
         return;
       }
       
@@ -27,55 +30,39 @@ export class UploadController {
       const roomName = req.query.roomName as string | undefined;
       
       if (!propertyId) {
-        res.status(400).json({
-          success: false,
-          message: 'propertyId query parameter is required'
-        });
+        this.sendError(res, 'propertyId query parameter is required', 400);
         return;
       }
       
-      const user = (req as any).user;
-      const userId = user.id;
+      const userId = this.getUserId(req);
       
-      // Generate unique filename with timestamp
-      const timestamp = Date.now();
-      const uniqueId = uuidv4();
-      const filename = `${timestamp}-${uniqueId}.webp`;
+      this.logger.info(`Uploading image for property: ${propertyId}, room: ${roomName || 'unspecified'}`);
       
-      // Process image with sharp (convert to webp for consistency and optimization)
-      const optimizedImageBuffer = await this.uploadService.optimizeImage(req.file.buffer);
-      
-      // Upload to Supabase storage
+      // Upload to Supabase storage - pass original filename to preserve extension
       const supabasePath = await this.uploadService.uploadToSupabase(
-        optimizedImageBuffer, 
+        req.file.buffer, 
         userId, 
         propertyId, 
         roomName, 
-        filename
+        req.file.originalname
       );
       
       // Get a public URL for the uploaded file
       const publicUrl = this.uploadService.getPublicUrl(supabasePath);
       
-      res.status(200).json({
-        success: true,
-        message: 'Image uploaded successfully',
-        data: {
-          filename,
-          timestamp,
-          path: supabasePath,
-          propertyId,
-          roomName: roomName || 'unspecified',
-          url: publicUrl
-        }
-      });
+      const imageData = {
+        filename: supabasePath.split('/').pop(),
+        path: supabasePath,
+        propertyId,
+        roomName: roomName || 'unspecified',
+        url: publicUrl
+      };
+      
+      this.logger.info(`Image uploaded successfully at path: ${supabasePath}`);
+      this.sendSuccess(res, 'Image uploaded successfully', imageData);
     } catch (error: any) {
-      console.error('Error uploading image:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error uploading image',
-        error: error.message
-      });
+      this.logger.methodError('uploadImage', error);
+      this.sendError(res, 'Error uploading image', 500, error);
     }
   }
 
@@ -83,12 +70,11 @@ export class UploadController {
    * Upload multiple images
    */
   async uploadMultipleImages(req: Request, res: Response): Promise<void> {
+    this.logger.methodStart('uploadMultipleImages');
+    
     try {
       if (!req.files || (Array.isArray(req.files) && req.files.length === 0)) {
-        res.status(400).json({
-          success: false,
-          message: 'No image files provided'
-        });
+        this.sendError(res, 'No image files provided', 400);
         return;
       }
       
@@ -97,42 +83,31 @@ export class UploadController {
       const roomName = req.query.roomName as string | undefined;
       
       if (!propertyId) {
-        res.status(400).json({
-          success: false,
-          message: 'propertyId query parameter is required'
-        });
+        this.sendError(res, 'propertyId query parameter is required', 400);
         return;
       }
       
-      const user = (req as any).user;
-      const userId = user.id;
+      const userId = this.getUserId(req);
+      
+      this.logger.info(`Uploading ${(req.files as Express.Multer.File[]).length} images for property: ${propertyId}`);
       
       // Process all uploaded files
       const uploadedFiles = await Promise.all(
         (req.files as Express.Multer.File[]).map(async (file) => {
-          // Generate unique filename with timestamp
-          const timestamp = Date.now();
-          const uniqueId = uuidv4();
-          const filename = `${timestamp}-${uniqueId}.webp`;
-          
-          // Process image with sharp
-          const optimizedImageBuffer = await this.uploadService.optimizeImage(file.buffer);
-          
-          // Upload to Supabase storage
+          // Upload to Supabase storage - pass original filename to preserve extension
           const supabasePath = await this.uploadService.uploadToSupabase(
-            optimizedImageBuffer, 
+            file.buffer, 
             userId, 
             propertyId, 
             roomName, 
-            filename
+            file.originalname
           );
           
           // Get a public URL for the uploaded file
           const publicUrl = this.uploadService.getPublicUrl(supabasePath);
           
           return {
-            filename,
-            timestamp,
+            filename: supabasePath.split('/').pop(),
             path: supabasePath,
             propertyId,
             roomName: roomName || 'unspecified',
@@ -141,20 +116,11 @@ export class UploadController {
         })
       );
       
-      res.status(200).json({
-        success: true,
-        message: 'Images uploaded successfully',
-        data: {
-          files: uploadedFiles
-        }
-      });
+      this.logger.info(`Successfully uploaded ${uploadedFiles.length} images`);
+      this.sendSuccess(res, 'Images uploaded successfully', { files: uploadedFiles });
     } catch (error: any) {
-      console.error('Error uploading images:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error uploading images',
-        error: error.message
-      });
+      this.logger.methodError('uploadMultipleImages', error);
+      this.sendError(res, 'Error uploading images', 500, error);
     }
   }
 
@@ -162,24 +128,19 @@ export class UploadController {
    * List property images
    */
   async listPropertyImages(req: Request, res: Response): Promise<void> {
+    const propertyId = req.params.propertyId;
+    const userId = this.getUserId(req);
+    
+    this.logger.methodStart('listPropertyImages', { propertyId, userId });
+    
     try {
-      const propertyId = req.params.propertyId;
-      const user = (req as any).user;
-      const userId = user.id;
-      
       const rooms = await this.uploadService.listPropertyImages(propertyId, userId);
       
-      res.status(200).json({
-        success: true,
-        data: rooms
-      });
+      this.logger.info(`Found ${rooms.length} rooms with images`);
+      this.sendSuccess(res, 'Property images retrieved successfully', rooms);
     } catch (error: any) {
-      console.error('Error listing property images:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error listing property images',
-        error: error.message
-      });
+      this.logger.methodError('listPropertyImages', error);
+      this.sendError(res, 'Error listing property images', 500, error);
     }
   }
 
@@ -187,51 +148,34 @@ export class UploadController {
    * Delete an image
    */
   async deleteImage(req: Request, res: Response): Promise<void> {
+    const { imagePath } = req.body;
+    const propertyId = req.query.propertyId as string;
+    const userId = this.getUserId(req);
+    
+    this.logger.methodStart('deleteImage', { propertyId, imagePath });
+    
     try {
-      const { imagePath } = req.body;
-      const propertyId = req.query.propertyId as string;
-      
       if (!imagePath) {
-        res.status(400).json({
-          success: false,
-          message: 'imagePath is required in the request body'
-        });
+        this.sendError(res, 'imagePath is required in the request body', 400);
         return;
       }
       
       if (!propertyId) {
-        res.status(400).json({
-          success: false,
-          message: 'propertyId query parameter is required'
-        });
+        this.sendError(res, 'propertyId query parameter is required', 400);
         return;
       }
       
-      const user = (req as any).user;
-      const userId = user.id;
-      
       await this.uploadService.deleteImage(propertyId, userId, imagePath);
       
-      res.status(200).json({
-        success: true,
-        message: 'Image deleted successfully'
-      });
+      this.logger.info(`Image deleted successfully: ${imagePath}`);
+      this.sendSuccess(res, 'Image deleted successfully');
     } catch (error: any) {
-      console.error('Error deleting image:', error);
+      this.logger.methodError('deleteImage', error);
       
-      // Determine the appropriate status code based on the error message
-      let statusCode = 500;
-      if (error.message.includes("not found") || error.message.includes("don't have access")) {
-        statusCode = 404;
-      } else if (error.message.includes("permission to delete")) {
-        statusCode = 403;
-      }
+      // Get appropriate status code
+      const statusCode = this.getErrorStatusCode(error);
       
-      res.status(statusCode).json({
-        success: false,
-        message: 'Error deleting image',
-        error: error.message
-      });
+      this.sendError(res, error.message, statusCode, error);
     }
   }
 } 
