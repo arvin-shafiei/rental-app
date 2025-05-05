@@ -14,6 +14,15 @@ const config: Config = {
       },
       // You can add your custom theme extensions here
       // For example: colors, fonts, spacing, etc.
+      animation: {
+        'marquee': 'marquee 25s linear infinite',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
+      },
     },
   },
   plugins: [],

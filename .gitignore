@@ -29,3 +29,4 @@ dailytodo.md
 .vscode
 *.swp
 *.swo
+/node_modules

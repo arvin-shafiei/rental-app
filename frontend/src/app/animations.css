@@ -1,0 +1,16 @@
+@keyframes scrollSlow {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-scroll-slow {
+  animation: scrollSlow 30s linear infinite;
+}
+
+.group:hover .group-hover\:pause-animation {
+  animation-play-state: paused;
+} 
