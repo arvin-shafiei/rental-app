@@ -187,7 +187,7 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
           
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-center">
             <Link 
-              href="/dashboard/properties" 
+              href="/dashboard/timeline" 
               className="text-sm text-blue-600 hover:text-blue-800"
               onClick={() => setIsOpen(false)}
             >

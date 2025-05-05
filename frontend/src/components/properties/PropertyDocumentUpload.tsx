@@ -121,6 +121,7 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
           >
             <option value="">Select a document type</option>
             <option value="lease">Lease Agreement</option>
+            <option value="contract">Contract</option>
             <option value="inspection">Inspection Report</option>
             <option value="maintenance">Maintenance Record</option>
             <option value="invoice">Invoice</option>
