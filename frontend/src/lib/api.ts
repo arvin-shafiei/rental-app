@@ -134,37 +134,44 @@ export const deletePropertyImage = async (propertyId: string, imagePath: string)
  * Scan a contract document
  * @param documentPath - Either a path to an existing document or a File object
  */
-  export const scanContractDocument = async (documentPath: string | File) => {
+export const scanContractDocument = async (documentPath: string | File) => {
+  try {
     if (typeof documentPath === 'string') {
+      console.log('Scanning existing document at path:', documentPath);
       // For existing documents, send the path
       return fetchFromApi('/contracts/scan', {
         method: 'POST',
         body: JSON.stringify({ documentPath })
       });
     } else {
+      console.log('Uploading and scanning new document');
       // For new uploads, use FormData
       const formData = new FormData();
-    formData.append('document', documentPath);
-    
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Authentication required');
+      formData.append('document', documentPath);
+      
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const response = await fetch('/api/contracts/scan', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Contract scan failed with status ${response.status}`);
+      }
+      
+      return await response.json();
     }
-    
-    const response = await fetch('/api/contracts/scan', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `Contract scan failed with status ${response.status}`);
-    }
-    
-    return await response.json();
+  } catch (error) {
+    console.error('Error scanning contract:', error);
+    throw error;
   }
 };
 
