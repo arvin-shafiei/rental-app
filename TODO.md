@@ -2,16 +2,16 @@
 
 ## Frontend (Web)
 - [ ] LandingPageSite - (Arvin)
-- [ X ] AuthFlow - (Ben)
+- [X] AuthFlow - (Ben)
 - [ ] OnboardingFlow - (arv)
 - [ ] AppDashboard - (Ben & arv)
 - [ ] PhotoChecklistFlow - (arv)
 - [ ] ContractReviewFlow - (arv)
-- [ ] RepairRequestFlow - (arv)
+- [X] RepairRequestFlow - (arv)
 - [ ] RentRaiseChecker - (Ben)
 - [ ] FlatmateAgreementBuilder - (Ben)
 - [ ] TimelineTracker - (Ben)
-- [ ] DepositReturnHelper - (Ben)
+- [X] DepositReturnHelper - (Ben)
 <!-- - [ ] AILegalChat - (Ben) -->
 - [ ] DocumentLibrary - (Ben)
 - [ ] SettingsSupport - (Ben)
@@ -38,20 +38,20 @@
 
 - [ ] ContractAnalysisEngine - (Arvin) - AI-powered system that analyzes rental contracts to extract key information like rent amount, duration, notice periods, and special clauses.
 
-- [ X ] PhotoUploadService - (Ben - simple S3 with Supabase, use service role only to access) - Handles upload, storage and retrieval of property photos using S3 via Supabase, including condition documentation and repair evidence.
+- [X] PhotoUploadService - (Ben - simple S3 with Supabase, use service role only to access) - Handles upload, storage and retrieval of property photos using S3 via Supabase, including condition documentation and repair evidence.
 - [ ] RepairEmailGenerator - (Ben - SMTP needed, GSuite) - Creates and sends formatted repair request emails to landlords/property managers with relevant details and photo attachments via GSuite SMTP.
 
-- [ ] TimelineSyncEngine - (Ben) - Manages important rental timeline events including lease dates, payment deadlines, inspection schedules, and maintenance visits across the platform.
+- [X] TimelineSyncEngine - (Ben) - Manages important rental timeline events including lease dates, payment deadlines, inspection schedules, and maintenance visits across the platform.
 
 <!-- - [ ] RentComparisonEngine - (Arvin) - Analyzes local rental markets to help users understand fair market rates, track rent changes, and evaluate if increases are reasonable. (after) -->
 
-- [ ] FlatmateAgreementBuilder - (Ben) - Creates agreements between roommates covering rent splitting, utilities, responsibilities, and conflict resolution procedures.
+- [X] FlatmateAgreementBuilder - (Ben) - Creates agreements between roommates covering rent splitting, utilities, responsibilities, and conflict resolution procedures.
 
 - [ ] DepositDeadlineTracker - (Arvin) - Monitors deposit-related deadlines, protection scheme requirements, possible deductions, and provides dispute resolution guidance.
 
 <!-- - [ ] LegalQAChatbot - (Ben - GPT wrapper, realtime Supabase DB) -->
 
-- [ ] DocumentStorageService - (Ben) - Secure system for storing and organizing all tenant/landlord documents including leases, receipts, insurance documents, correspondence, and inspection reports.
+- [X] DocumentStorageService - (Ben) - Secure system for storing and organizing all tenant/landlord documents including leases, receipts, insurance documents, correspondence, and inspection reports.
 
 <!-- - [ ] ReminderNotificationService - (Arvin - push notifications for iOS) - Sends timely push notifications about rent payments, lease expiration, inspections, maintenance visits, and document renewals. (not for now)-->
 
