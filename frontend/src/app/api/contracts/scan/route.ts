@@ -11,15 +11,38 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Process the form data
-    const formData = await request.formData();
-    const document = formData.get('document') as File;
+    // Check content type to determine if it's form data or JSON
+    const contentType = request.headers.get('content-type') || '';
+    let documentPath: string | null = null;
+    let document: File | null = null;
+    let userId: string | null = null;
     
-    if (!document) {
-      return NextResponse.json(
-        { error: 'No document provided' },
-        { status: 400 }
-      );
+    if (contentType.includes('multipart/form-data')) {
+      // Process form data for file uploads
+      const formData = await request.formData();
+      document = formData.get('document') as File;
+      userId = formData.get('userId') as string;
+      
+      if (!document) {
+        return NextResponse.json(
+          { error: 'No document provided' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Process JSON for document path
+      const body = await request.json();
+      documentPath = body.documentPath;
+      userId = body.userId;
+      
+      if (!documentPath) {
+        return NextResponse.json(
+          { error: 'No document path provided' },
+          { status: 400 }
+        );
+      }
+      
+      console.log('Received document path for scanning:', documentPath);
     }
 
     const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -30,20 +53,45 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create a new FormData object to send to the backend
-    const backendFormData = new FormData();
-    backendFormData.append('document', document);
+    let response;
     
-    console.log('Forwarding request to backend at:', `${API_URL}/contracts/scan`);
-    
-    // Call the backend API - forward the original auth header
-    const response = await fetch(`${API_URL}/contracts/scan`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader // Forward the same auth header
-      },
-      body: backendFormData
-    });
+    if (document) {
+      // For file uploads, forward as form data
+      const backendFormData = new FormData();
+      backendFormData.append('document', document);
+      if (userId) {
+        backendFormData.append('userId', userId);
+      }
+      
+      console.log('Forwarding file upload to backend at:', `${API_URL}/contracts/scan`);
+      
+      response = await fetch(`${API_URL}/contracts/scan`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader
+        },
+        body: backendFormData
+      });
+    } else if (documentPath) {
+      // For document paths, forward as JSON
+      console.log('Forwarding document path to backend at:', `${API_URL}/contracts/scan`);
+      console.log('Document path value:', documentPath);
+      
+      response = await fetch(`${API_URL}/contracts/scan`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ documentPath, userId })
+      });
+    } else {
+      // Should never happen due to earlier checks
+      return NextResponse.json(
+        { error: 'No document provided' },
+        { status: 400 }
+      );
+    }
     
     if (!response.ok) {
       try {

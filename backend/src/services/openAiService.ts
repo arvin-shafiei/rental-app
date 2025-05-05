@@ -149,9 +149,39 @@ export async function analyzeContract(filePath: string | Buffer): Promise<Contra
     } else {
       // If we have a buffer, write it to a temp file and extract text
       try {
-        const tempFilePath = path.join('uploads', 'temp', `temp_doc_${Date.now()}.pdf`);
+        // Get the file extension from the data signature if possible
+        // This is a simple check - in a real app you would use something like file-type
+        let extension = '.bin';
+        const fileSignature = filePath.slice(0, 4).toString('hex');
+        
+        // Check file signature to determine file type
+        if (fileSignature.startsWith('504b')) {
+          extension = '.docx'; // Office Open XML format (DOCX)
+        } else if (fileSignature.startsWith('d0cf')) {
+          extension = '.doc';  // Old Word Document
+        } else if (fileSignature.startsWith('2550')) {
+          extension = '.pdf';  // PDF file
+        } else if (fileSignature.startsWith('7b0a')) {
+          extension = '.txt';  // Text file starting with '{\n'
+        }
+        
+        console.log(`Detected file type: ${extension} based on signature`);
+        
+        // Create temp file with the correct extension
+        const tempFilePath = path.join('uploads', 'temp', `temp_doc_${Date.now()}${extension}`);
+        
+        // Ensure the temp directory exists
+        const tempDir = path.join('uploads', 'temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
         fs.writeFileSync(tempFilePath, filePath);
+        console.log(`Temporary file written to: ${tempFilePath}`);
+        
+        // Extract text using the correct file type handler
         documentText = await extractTextFromDocument(tempFilePath);
+        
         // Clean up temp file
         fs.unlinkSync(tempFilePath);
       } catch (tempFileError) {
