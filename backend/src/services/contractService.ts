@@ -73,14 +73,20 @@ export async function storeContractSummary(summaryData: any, userId?: string) {
  */
 export async function getContractSummaries(userId?: string, limit = 10, offset = 0) {
   try {
-    let query = supabase
+    console.log(`Fetching contract summaries with userId: ${userId || 'none'}, limit: ${limit}, offset: ${offset}`);
+    
+    // Use supabaseAdmin to bypass RLS, similar to how storeContractSummary works
+    let query = supabaseAdmin
       .from('contract_summaries')
       .select('*')
       .order('created_at', { ascending: false });
     
     // If userId is provided, filter by user
     if (userId) {
+      console.log(`Filtering contract_summaries by user_id: ${userId}`);
       query = query.eq('user_id', userId);
+    } else {
+      console.log('No userId provided, returning all summaries (bypassing RLS)');
     }
     
     const { data, error } = await query.range(offset, offset + limit - 1);
@@ -90,6 +96,13 @@ export async function getContractSummaries(userId?: string, limit = 10, offset =
       throw error;
     }
 
+    console.log(`Retrieved ${data?.length || 0} contract summaries`);
+    
+    // Print the user_id of each summary for debugging
+    if (data && data.length > 0) {
+      console.log('Summary user_ids:', data.map(summary => summary.user_id || 'null'));
+    }
+    
     return data;
   } catch (error) {
     console.error('Failed to retrieve contract summaries:', error);

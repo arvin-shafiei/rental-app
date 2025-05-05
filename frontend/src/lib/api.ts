@@ -136,18 +136,23 @@ export const deletePropertyImage = async (propertyId: string, imagePath: string)
  */
 export const scanContractDocument = async (documentPath: string | File) => {
   try {
+    // Get the user's ID from the session
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
     if (typeof documentPath === 'string') {
       console.log('Scanning existing document at path:', documentPath);
       // For existing documents, send the path
       return fetchFromApi('/contracts/scan', {
         method: 'POST',
-        body: JSON.stringify({ documentPath })
+        body: JSON.stringify({ documentPath, userId })
       });
     } else {
       console.log('Uploading and scanning new document');
       // For new uploads, use FormData
       const formData = new FormData();
       formData.append('document', documentPath);
+      formData.append('userId', userId || '');
       
       const token = await getAuthToken();
       if (!token) {

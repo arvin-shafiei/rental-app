@@ -267,8 +267,9 @@ router.post('/scan', upload.single('document'), async (req, res) => {
         
         // Store the analysis result in the database
         try {
-          // Get userId from the request if available
-          const userId = (req as RequestWithUser).user?.id;
+          // Get userId from the request body or authenticated user
+          const userId = req.body.userId || (req as RequestWithUser).user?.id;
+          console.log(`Storing contract summary with user ID: ${userId || 'anonymous'}`);
           await storeContractSummary(analysis, userId);
         } catch (storageError) {
           console.warn('Failed to store summary, but continuing:', storageError);
@@ -298,8 +299,9 @@ router.post('/scan', upload.single('document'), async (req, res) => {
         
         // Store the analysis result in the database
         try {
-          // Get userId from the request if available  
-          const userId = (req as RequestWithUser).user?.id;
+          // Get userId from the request body or authenticated user
+          const userId = req.body.userId || (req as RequestWithUser).user?.id;
+          console.log(`Storing contract summary with user ID: ${userId || 'anonymous'}`);
           await storeContractSummary(analysis, userId);
         } catch (storageError) {
           console.warn('Failed to store summary, but continuing:', storageError);

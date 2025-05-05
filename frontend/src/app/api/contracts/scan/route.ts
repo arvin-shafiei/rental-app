@@ -15,11 +15,13 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') || '';
     let documentPath: string | null = null;
     let document: File | null = null;
+    let userId: string | null = null;
     
     if (contentType.includes('multipart/form-data')) {
       // Process form data for file uploads
       const formData = await request.formData();
       document = formData.get('document') as File;
+      userId = formData.get('userId') as string;
       
       if (!document) {
         return NextResponse.json(
@@ -31,6 +33,7 @@ export async function POST(request: NextRequest) {
       // Process JSON for document path
       const body = await request.json();
       documentPath = body.documentPath;
+      userId = body.userId;
       
       if (!documentPath) {
         return NextResponse.json(
@@ -56,6 +59,9 @@ export async function POST(request: NextRequest) {
       // For file uploads, forward as form data
       const backendFormData = new FormData();
       backendFormData.append('document', document);
+      if (userId) {
+        backendFormData.append('userId', userId);
+      }
       
       console.log('Forwarding file upload to backend at:', `${API_URL}/contracts/scan`);
       
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
           'Authorization': authHeader,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ documentPath })
+        body: JSON.stringify({ documentPath, userId })
       });
     } else {
       // Should never happen due to earlier checks

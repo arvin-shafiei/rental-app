@@ -6,6 +6,8 @@ import Link from 'next/link';
 import ContractUploader from '@/components/contracts/ContractUploader';
 import dynamic from 'next/dynamic';
 import { scanContractDocument } from '@/lib/api';
+import { supabase } from '@/lib/supabase/client';
+import { fetchFromApi } from '@/lib/api';
 
 // Use dynamic imports with proper type declarations
 const DynamicPropertyDocumentSelector = dynamic(
@@ -34,28 +36,51 @@ export default function ContractScannerPage() {
   const [summariesLoading, setSummariesLoading] = useState(true);
   const [summariesError, setSummariesError] = useState<string | null>(null);
 
+  // Helper function to fetch summaries using the API helper
+  const fetchUserContractSummaries = async (userId: string) => {
+    try {
+      console.log(`Fetching contract summaries for user: ${userId}`);
+      
+      // Use the fetchFromApi helper which handles auth properly
+      const result = await fetchFromApi(`/contracts/summaries?userId=${userId}`);
+      console.log('Contract summaries API response:', result);
+      
+      if (result && result.success && Array.isArray(result.data)) {
+        console.log(`Received ${result.data.length} contract summaries`);
+        setSummaries(result.data);
+      } else {
+        console.error('Invalid response format:', result);
+        setSummariesError('Could not load contract history');
+      }
+    } catch (error: any) {
+      console.error('Error fetching contract summaries:', error);
+      setSummariesError(error.message || 'Failed to load summaries');
+    } finally {
+      setSummariesLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Fetch contract summaries
     async function fetchSummaries() {
       try {
         setSummariesLoading(true);
-        const response = await fetch('/api/contracts/summaries');
         
-        if (!response.ok) {
-          throw new Error('Failed to load contract summaries');
+        // Get the current user's ID from Supabase session
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        
+        // Only fetch if we have a userId
+        if (!userId) {
+          console.log('No authenticated user found for fetching contract summaries');
+          setSummariesLoading(false);
+          return; // Just return without setting an error to avoid confusion
         }
         
-        const data = await response.json();
-        
-        if (data.success && Array.isArray(data.data)) {
-          setSummaries(data.data);
-        } else {
-          setSummariesError('Could not load contract history');
-        }
+        // Use our helper function to fetch summaries
+        await fetchUserContractSummaries(userId);
       } catch (error: any) {
-        console.error('Error fetching summaries:', error);
-        setSummariesError(error.message || 'Failed to load summaries');
-      } finally {
+        console.error('Error in fetchSummaries:', error);
         setSummariesLoading(false);
       }
     }
@@ -80,10 +105,12 @@ export default function ContractScannerPage() {
         
         // Refresh summaries after scanning
         try {
-          const summariesResponse = await fetch('/api/contracts/summaries');
-          const summariesData = await summariesResponse.json();
-          if (summariesData.success && Array.isArray(summariesData.data)) {
-            setSummaries(summariesData.data);
+          // Get the current user's ID from Supabase session
+          const { data: sessionData } = await supabase.auth.getSession();
+          const userId = sessionData?.session?.user?.id;
+          
+          if (userId) {
+            await fetchUserContractSummaries(userId);
           }
         } catch (err) {
           console.error('Failed to refresh summaries after scan:', err);
