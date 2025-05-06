@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // DELETE image handler
 export async function DELETE(req: NextRequest) {
   try {

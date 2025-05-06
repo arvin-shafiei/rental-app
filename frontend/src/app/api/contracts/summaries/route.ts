@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Make this route explicitly dynamic
+export const dynamic = 'force-dynamic';
+
 // Helper function to get a token if none is provided in the request
 async function getAuthToken() {
   try {

@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/FormElements';
 import { acceptInvitation } from '@/lib/api';
 import { supabase } from '@/lib/supabase/client';
 
-export default function AcceptInvitationPage() {
+// Create a separate client component that uses useSearchParams
+import { useSearchParams } from 'next/navigation';
+
+function InvitationAccepter() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -120,5 +123,29 @@ export default function AcceptInvitationPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">Loading</h1>
+        <div className="flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-gray-600">Loading invitation details...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main component that wraps the InvitationAccepter in a Suspense boundary
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <InvitationAccepter />
+    </Suspense>
   );
 } 

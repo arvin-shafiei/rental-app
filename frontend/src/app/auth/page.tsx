@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function Auth() {
+// Create a separate client component that uses useSearchParams
+function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl');
@@ -248,7 +249,7 @@ export default function Auth() {
                     fill="#FBBC05"
                   />
                   <path
-                    d="M12.0004 24.0001C15.2404 24.0001 17.9654 22.935 19.9454 21.19L16.0804 18.08C15.0054 18.82 13.6204 19.25 12.0004 19.25C8.8704 19.25 6.21537 17.14 5.2654 14.295L1.27539 17.39C3.25539 21.31 7.3104 24.0001 12.0004 24.0001Z"
+                    d="M12.0003 23.9999C15.2403 23.9999 17.9603 22.8699 19.9453 20.8999L16.0803 17.7899C15.0063 18.5499 13.6263 19.0099 12.0003 19.0099C8.87026 19.0099 6.21524 16.9199 5.27026 14.0349L1.28027 17.1299C3.25525 21.0499 7.31029 23.9999 12.0003 23.9999Z"
                     fill="#34A853"
                   />
                 </svg>
@@ -265,5 +266,26 @@ export default function Auth() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+        <p className="text-sm font-medium text-gray-700">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
+// Main component that wraps the AuthContent in a Suspense boundary
+export default function Auth() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AuthContent />
+    </Suspense>
   );
 } 
