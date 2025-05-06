@@ -7,6 +7,9 @@ import {
   AlertCircle, 
   ArrowLeft, 
   CalendarIcon,
+  Check,
+  ChevronsUpDown,
+  Filter
 } from 'lucide-react';
 import Link from 'next/link';
 import { format, parseISO, isAfter, isBefore, isSameDay, compareAsc, compareDesc } from 'date-fns';
@@ -18,6 +21,15 @@ import TabButton from '@/components/ui/TabButton';
 import { SearchInput } from '@/components/ui/search-input';
 import { TimelineEventCard } from '@/components/ui/timeline-event-card';
 import { InfiniteScroll } from '@/components/ui/infinite-scroll';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 // Number of events to load per "page"
 const ITEMS_PER_PAGE = 12;
@@ -199,6 +211,35 @@ export default function TimelinePage() {
     };
   };
 
+  // Get formatted event type label
+  const getEventTypeLabel = (type: string): string => {
+    if (type === 'all') return 'All Types';
+    
+    switch (type) {
+      case TimelineEventType.LEASE_START:
+        return 'Lease Start';
+      case TimelineEventType.LEASE_END:
+        return 'Lease End';
+      case TimelineEventType.RENT_DUE:
+        return 'Rent Due';
+      case TimelineEventType.INSPECTION:
+        return 'Inspection';
+      case TimelineEventType.MAINTENANCE:
+        return 'Maintenance';
+      case TimelineEventType.OTHER:
+        return 'Other';
+      default:
+        return type;
+    }
+  };
+
+  // Get formatted property label
+  const getPropertyLabel = (id: string): string => {
+    if (id === 'all') return 'All Properties';
+    const property = properties.find(p => p.id === id);
+    return property ? property.name : 'Unknown Property';
+  };
+
   // Search and filter events
   const filteredEvents = useMemo(() => {
     const today = new Date();
@@ -343,47 +384,106 @@ export default function TimelinePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search events..."
-            className="w-full sm:w-1/3 lg:w-2/5 mt-1.5"
+            className="w-full sm:w-1/3 lg:w-2/5 mt-4.5"
           />
           
           <div className="flex flex-1 space-x-4">
             <div className="w-1/2">
-              <label htmlFor="typeFilter" className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Event Type
               </label>
-              <select
-                id="typeFilter"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                <option value="all">All Types</option>
-                <option value={TimelineEventType.RENT_DUE}>Rent Due</option>
-                <option value={TimelineEventType.LEASE_START}>Lease Start</option>
-                <option value={TimelineEventType.LEASE_END}>Lease End</option>
-                <option value={TimelineEventType.INSPECTION}>Inspection</option>
-                <option value={TimelineEventType.MAINTENANCE}>Maintenance</option>
-                <option value={TimelineEventType.OTHER}>Other</option>
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 text-gray-600 focus:ring-blue-500 focus:border-blue-500">
+                  <span>{getEventTypeLabel(typeFilter)}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-500" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[200px] bg-white border border-gray-200 shadow-md" sideOffset={4}>
+                  <DropdownMenuLabel className="font-semibold">Event Types</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem 
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                    onClick={() => setTypeFilter('all')}
+                  >
+                    All Types
+                    {typeFilter === 'all' && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.RENT_DUE)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Rent Due
+                    {typeFilter === TimelineEventType.RENT_DUE && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.LEASE_START)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Lease Start
+                    {typeFilter === TimelineEventType.LEASE_START && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.LEASE_END)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Lease End
+                    {typeFilter === TimelineEventType.LEASE_END && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.INSPECTION)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Inspection
+                    {typeFilter === TimelineEventType.INSPECTION && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.MAINTENANCE)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Maintenance
+                    {typeFilter === TimelineEventType.MAINTENANCE && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.OTHER)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Other
+                    {typeFilter === TimelineEventType.OTHER && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             
             <div className="w-1/2">
-              <label htmlFor="propertyFilter" className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Property
               </label>
-              <select
-                id="propertyFilter"
-                value={propertyFilter}
-                onChange={(e) => setPropertyFilter(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                <option value="all">All Properties</option>
-                {properties.map(property => (
-                  <option key={property.id} value={property.id}>
-                    {property.name}
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 text-gray-600 focus:ring-blue-500 focus:border-blue-500">
+                  <span>{getPropertyLabel(propertyFilter)}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-500" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[200px] max-h-[300px] overflow-y-auto bg-white border border-gray-200 shadow-md" sideOffset={4}>
+                  <DropdownMenuLabel className="font-semibold">Properties</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-gray-200" />
+                  <DropdownMenuItem 
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                    onClick={() => setPropertyFilter('all')}
+                  >
+                    All Properties
+                    {propertyFilter === 'all' && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  {properties.map(property => (
+                    <DropdownMenuItem
+                      key={property.id}
+                      onClick={() => setPropertyFilter(property.id)}
+                      className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                    >
+                      {property.name}
+                      {propertyFilter === property.id && <Check className="h-4 w-4 text-blue-600" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
