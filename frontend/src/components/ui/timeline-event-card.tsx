@@ -74,6 +74,10 @@ export function TimelineEventCard({
     }
   };
 
+  // Determine if we should show the completion toggle button
+  // Hide it for Agreement type events
+  const showCompletionToggle = event.event_type.toLowerCase() !== 'agreement';
+
   return (
     <div 
       className={`${
@@ -81,18 +85,20 @@ export function TimelineEventCard({
       } border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow transition-shadow h-full flex flex-col relative`}
     >
       {/* Completion toggle button - positioned absolutely in the top right */}
-      <button 
-        onClick={handleToggleComplete}
-        className={`absolute top-4 right-4 focus:outline-none ${isUpdating ? 'cursor-wait' : 'cursor-pointer'}`}
-        aria-label={event.is_completed ? "Mark as incomplete" : "Mark as complete"}
-        disabled={isUpdating}
-      >
-        {renderCompletionButton()}
-      </button>
+      {showCompletionToggle && (
+        <button 
+          onClick={handleToggleComplete}
+          className={`absolute top-4 right-4 focus:outline-none ${isUpdating ? 'cursor-wait' : 'cursor-pointer'}`}
+          aria-label={event.is_completed ? "Mark as incomplete" : "Mark as complete"}
+          disabled={isUpdating}
+        >
+          {renderCompletionButton()}
+        </button>
+      )}
 
       <div className="flex items-start gap-3">
         <div className="mt-1">{getEventIcon(event.event_type)}</div>
-        <div className="flex-1 pr-8"> {/* Add right padding to avoid text overlapping with the completion circle */}
+        <div className={`flex-1 ${showCompletionToggle ? 'pr-8' : ''}`}>
           <div className="flex items-center">
             <h5 className="text-md font-medium text-gray-900 line-clamp-1">{event.title}</h5>
           </div>
