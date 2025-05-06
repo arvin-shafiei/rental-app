@@ -32,12 +32,11 @@ export default function Header() {
         </nav>
         
         <div className="hidden md:flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
-            Login
+          <Link href="/auth">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors">
+              Get Started
+            </Button>
           </Link>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors">
-            Get Started
-          </Button>
         </div>
         
         {/* Mobile Menu Button */}
@@ -83,18 +82,13 @@ export default function Header() {
             </Link>
             <div className="pt-2 flex flex-col space-y-3">
               <Link 
-                href="/login" 
-                className="text-sm font-medium text-gray-600 hover:text-blue-600"
+                href="/auth" 
                 onClick={() => setIsMenuOpen(false)}
               >
-                Login
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full">
+                  Get Started
+                </Button>
               </Link>
-              <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Get Started
-              </Button>
             </div>
           </nav>
         </div>
