@@ -8,28 +8,27 @@ export default function HeroSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-500">
-            <span className="mr-1">🎉</span> Announcement <span className="mx-1">·</span> Introducing Acme.ai{" "}
-            <span className="ml-1">→</span>
+            <span className="mr-1">🏠</span> UK Renters <span className="mx-1">·</span> Take control of your rental experience <span className="ml-1">→</span>
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl text-blue-700">
-              Automate your workflow
+              Take Control of Your
               <br />
-              with AI
+              Rental Experience
             </h1>
             <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl">
-              No matter what problem you have, our AI can help you solve it.
+              Photos, evidence, communications, and legal support—all in one helpful rental companion.
             </p>
           </div>
           <div className="space-y-4">
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-md px-8">Get started for free</Button>
-            <p className="text-xs text-gray-500">7 day free trial. No credit card required.</p>
+            <Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-md px-8">Start Free</Button>
+            <p className="text-xs text-gray-500">No credit card required. No obligations. Just support.</p>
           </div>
           <div className="relative w-full max-w-3xl mt-8">
             <div className="overflow-hidden rounded-lg border bg-white shadow-lg">
               <Image
                 src="/placeholder.svg?height=400&width=800"
-                alt="Email inbox interface"
+                alt="Rental app dashboard interface"
                 width={800}
                 height={400}
                 className="w-full"

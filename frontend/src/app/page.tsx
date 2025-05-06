@@ -4,6 +4,7 @@ import TrustedBySection from "@/components/homepage/sections/trusted-by-section"
 import ProblemSection from "@/components/homepage/sections/problem-section"
 import SolutionSection from "@/components/homepage/sections/solution-section"
 import HowItWorksSection from "@/components/homepage/sections/how-it-works-section"
+import PricingSection from "@/components/homepage/sections/pricing-section"
 import ReviewsSection from "@/components/homepage/sections/reviews-section"
 import TestimonialSection from "@/components/homepage/sections/testimonial-section"
 import Footer from "@/components/footer"
@@ -18,6 +19,7 @@ export default function Home() {
         <ProblemSection />
         <SolutionSection />
         <HowItWorksSection />
+        <PricingSection />
         <ReviewsSection />
         <TestimonialSection />
       </main>
