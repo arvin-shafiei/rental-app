@@ -103,18 +103,38 @@ export default function TimelinePage() {
   // Handle toggle event completion - with API call
   const handleToggleComplete = async (eventToToggle: TimelineEvent) => {
     try {
+      // Set updating state for immediate UI feedback
       setUpdatingEventId(eventToToggle.id);
       setError(null);
       
+      // Optimistically update UI first for a smoother experience
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventToToggle.id 
+            ? { ...event, is_completed: !event.is_completed }
+            : event
+        )
+      );
+      
+      // Make the API call
       await updateTimelineEvent(eventToToggle.id, {
         is_completed: !eventToToggle.is_completed
       });
       
-      // Refresh the events list
+      // Refresh the events list to ensure consistency with server
       await fetchEvents();
     } catch (err: any) {
       setError(err.message || 'Failed to update event');
       console.error('Error updating event completion status:', err);
+      
+      // Revert optimistic update on error
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventToToggle.id 
+            ? { ...event, is_completed: eventToToggle.is_completed }
+            : event
+        )
+      );
     } finally {
       setUpdatingEventId(null);
     }
@@ -335,7 +355,7 @@ export default function TimelinePage() {
                 id="typeFilter"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-600 sm:text-sm"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="all">All Types</option>
                 <option value={TimelineEventType.RENT_DUE}>Rent Due</option>
@@ -355,7 +375,7 @@ export default function TimelinePage() {
                 id="propertyFilter"
                 value={propertyFilter}
                 onChange={(e) => setPropertyFilter(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-600 sm:text-sm"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="all">All Properties</option>
                 {properties.map(property => (
@@ -424,6 +444,7 @@ export default function TimelinePage() {
                   onAddToCalendar={handleAddToCalendar}
                   onToggleComplete={handleToggleComplete}
                   isPast={statusTab === 'past'}
+                  isUpdating={updatingEventId === event.id}
                 />
               ))}
             </div>

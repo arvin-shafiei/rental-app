@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { Calendar, Home, CheckCircle2, Circle, CalendarIcon } from 'lucide-react';
+import { Calendar, Home, CheckCircle2, Circle, CalendarIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineEvent, TimelineEventType } from '@/lib/timelineApi';
 
@@ -9,13 +9,15 @@ interface TimelineEventCardProps {
   onAddToCalendar: (event: TimelineEvent, e: React.MouseEvent) => void;
   onToggleComplete?: (event: TimelineEvent) => void;
   isPast?: boolean;
+  isUpdating?: boolean;
 }
 
 export function TimelineEventCard({ 
   event, 
   onAddToCalendar, 
   onToggleComplete,
-  isPast = false 
+  isPast = false,
+  isUpdating = false
 }: TimelineEventCardProps) {
   // Get event icon based on type
   const getEventIcon = (type: string) => {
@@ -56,8 +58,19 @@ export function TimelineEventCard({
 
   // Handle toggle completion
   const handleToggleComplete = () => {
-    if (onToggleComplete) {
+    if (onToggleComplete && !isUpdating) {
       onToggleComplete(event);
+    }
+  };
+
+  // Render the completion button based on state
+  const renderCompletionButton = () => {
+    if (isUpdating) {
+      return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
+    } else if (event.is_completed) {
+      return <CheckCircle2 className="h-5 w-5 text-green-500 hover:text-green-600 transition-colors" />;
+    } else {
+      return <Circle className="h-5 w-5 text-gray-300 hover:text-gray-400 transition-colors" />;
     }
   };
 
@@ -70,14 +83,11 @@ export function TimelineEventCard({
       {/* Completion toggle button - positioned absolutely in the top right */}
       <button 
         onClick={handleToggleComplete}
-        className="absolute top-4 right-4 transition-colors focus:outline-none"
+        className={`absolute top-4 right-4 focus:outline-none ${isUpdating ? 'cursor-wait' : 'cursor-pointer'}`}
         aria-label={event.is_completed ? "Mark as incomplete" : "Mark as complete"}
+        disabled={isUpdating}
       >
-        {event.is_completed ? (
-          <CheckCircle2 className="h-5 w-5 text-green-500 hover:text-green-600" />
-        ) : (
-          <Circle className="h-5 w-5 text-gray-300 hover:text-gray-400" />
-        )}
+        {renderCompletionButton()}
       </button>
 
       <div className="flex items-start gap-3">
