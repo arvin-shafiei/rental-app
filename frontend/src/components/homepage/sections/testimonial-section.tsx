@@ -7,9 +7,9 @@ export default function TestimonialSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="TESTIMONIAL"
-            title="What our customers say"
-            description="Read what industry leaders have to say about our product."
+            subtitle="TESTIMONIALS"
+            title="Stories from renters like you"
+            description="Hear from people who have successfully navigated rental challenges with our help."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
@@ -27,8 +27,8 @@ export default function TestimonialSection() {
               />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-semibold text-blue-700">Sarah Johnson</h3>
-              <p className="text-sm text-gray-500">CEO, Innovative Solutions</p>
+              <h3 className="text-xl font-semibold text-blue-700">Emma Thompson</h3>
+              <p className="text-sm text-gray-500">Tenant in Manchester</p>
             </div>
             <div className="flex items-center space-x-1">
               {[...Array(5)].map((_, i) => (
@@ -49,9 +49,10 @@ export default function TestimonialSection() {
             </div>
             <blockquote className="mt-4 text-gray-600">
               <p className="text-lg">
-                "This AI platform has completely transformed our business operations. The automated
-                workflows have saved us countless hours and the insights provided have led to a 30%
-                increase in our overall efficiency. I couldn't recommend it more highly."
+                "When my landlord initially refused to fix the broken heating, I used the app to document 
+                the issue with photos and send a professional email citing the relevant regulations. 
+                The problem was fixed within days. Later, the app helped me recover my full deposit with 
+                all the evidence I'd collected. Such a helpful tool for renters!"
               </p>
             </blockquote>
           </div>

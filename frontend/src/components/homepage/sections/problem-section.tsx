@@ -1,27 +1,27 @@
 import { SectionHeading } from "@/components/ui/section-heading"
-import { CheckCircle2 } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 
 export default function ProblemSection() {
   const problems = [
     {
       id: 1,
-      title: "Time-consuming and repetitive tasks",
-      description: "Manual processes slow down your team and lead to errors."
+      title: "Deposit disputes",
+      description: "Difficulty recovering your full deposit when moving out despite leaving the property in good condition."
     },
     {
       id: 2,
-      title: "Complex workflows",
-      description: "Difficult to manage and optimize complex business processes."
+      title: "Maintenance delays",
+      description: "Slow responses to repair requests and uncertainty about landlord responsibilities."
     },
     {
       id: 3,
-      title: "Limited data utilization",
-      description: "Unable to efficiently analyze and act on available data."
+      title: "Documentation challenges",
+      description: "Lost receipts, missing evidence, and difficulty keeping track of important rental documents."
     },
     {
       id: 4,
-      title: "Resource constraints",
-      description: "Not enough resources to handle growing business demands."
+      title: "Legal complexity",
+      description: "Understanding your rights under different regional laws in England and Scotland."
     }
   ]
 
@@ -30,9 +30,9 @@ export default function ProblemSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="THE CHALLENGE"
-            title="Problems we solve"
-            description="Many businesses face obstacles that prevent them from reaching their full potential."
+            subtitle="COMMON CHALLENGES"
+            title="Renting Simplified"
+            description="We understand the hurdles UK renters face day-to-day. Our app helps you navigate these challenges with confidence."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
@@ -42,7 +42,7 @@ export default function ProblemSection() {
           {problems.map((problem) => (
             <div key={problem.id} className="flex flex-col items-start space-y-3 rounded-lg border border-blue-100 bg-white p-6 shadow-sm">
               <div className="flex items-center space-x-3">
-                <CheckCircle2 className="h-6 w-6 text-blue-500" />
+                <ShieldCheck className="h-6 w-6 text-blue-500" />
                 <h3 className="text-lg font-semibold text-blue-700">{problem.title}</h3>
               </div>
               <p className="text-gray-500">{problem.description}</p>

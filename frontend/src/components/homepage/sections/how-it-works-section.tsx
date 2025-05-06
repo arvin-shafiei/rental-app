@@ -4,23 +4,23 @@ export default function HowItWorksSection() {
   const steps = [
     {
       number: "01",
-      title: "Connect your data",
-      description: "Easily connect your data sources to our platform."
+      title: "Document Your Move-In",
+      description: "Take photos and notes of your property's condition when you move in."
     },
     {
       number: "02",
-      title: "Configure automation",
-      description: "Set up your automation workflows with our intuitive tools."
+      title: "Store Important Documents",
+      description: "Upload your lease, correspondence, and receipts to keep everything in one place."
     },
     {
       number: "03",
-      title: "Get insights",
-      description: "Receive intelligent insights and recommendations."
+      title: "Manage Maintenance Issues",
+      description: "Create and send professional repair requests with photo evidence."
     },
     {
       number: "04",
-      title: "Optimize & scale",
-      description: "Continuously improve and scale your processes."
+      title: "Protect Your Deposit",
+      description: "Monitor protection schemes and prepare evidence for a smooth move-out."
     }
   ]
 
@@ -29,9 +29,9 @@ export default function HowItWorksSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="HOW IT WORKS"
-            title="Simple integration process"
-            description="Our platform is designed to be easy to set up and use. Follow these simple steps to get started."
+            subtitle="YOUR RENTAL JOURNEY"
+            title="How to use our app"
+            description="Our app supports you through your entire rental experience with these simple steps."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />

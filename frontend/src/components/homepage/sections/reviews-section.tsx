@@ -5,151 +5,150 @@ export default function ReviewsSection() {
   const testimonials = [
     {
       id: 1,
-      content: "As a startup, we need to move fast and stay ahead. #CodeAI's automated coding assistant helps us do just that. Our development speed has doubled. Essential tool for any startup.",
+      content: "The deposit protection tracker alerted me that my landlord hadn't registered my deposit within the legal timeframe. Thanks to the app, I was able to politely remind them and get it properly protected.",
       author: {
-        name: "Raj Patel",
-        role: "Founder & CEO at Startup Grid",
+        name: "James Mitchell",
+        role: "Tenant in London",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Our development speed has doubled."
+      highlight: "Got my deposit properly protected."
     },
     {
       id: 2,
-      content: "The AI-driven analytics from #OptimizeInsights have revolutionized our product development cycle. Insights are now more accurate and faster than ever. A game-changer for tech companies.",
+      content: "The document storage feature has been incredibly helpful. I can access my lease agreement, inventory, and rent receipts instantly when I need them. No more digging through emails or paper files.",
       author: {
-        name: "Alex Rivera",
-        role: "CTO at InnovateTech",
+        name: "Sarah Chen",
+        role: "Tenant in Edinburgh",
         avatar: "/placeholder.svg?height=40&width=40"
       }
     },
     {
       id: 3,
-      content: "Implementing #AIPredictor's customer prediction model has drastically improved our targeting strategy. Seeing a 50% increase in conversion rates. Highly recommend their solutions.",
+      content: "Being able to take detailed photos when I moved in and store them securely gave me peace of mind. When I moved out, I was able to prove the condition of everything and got my full deposit back.",
       author: {
-        name: "Samantha Lee",
-        role: "Marketing Director at NextGen Solutions",
+        name: "Omar Patel",
+        role: "Tenant in Birmingham",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Seeing a 50% increase in conversion rates."
+      highlight: "Got my full deposit back."
     },
     {
       id: 4,
-      content: "Using #GlobalizeAI for our localization is now seamless and efficient. A must-have for global product teams.",
+      content: "The repair request templates are professional and effective. My landlord responded much faster than usual, and the issue was resolved without any confrontation.",
       author: {
-        name: "Emily Chen",
-        role: "Product Manager at Digital Wave",
+        name: "Lucy Wilson",
+        role: "Tenant in Glasgow",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Localization is now seamless and efficient."
+      highlight: "Issue resolved without any confrontation."
     },
     {
       id: 5,
-      content: "Leveraging #DataCrunch's AI for our financial models has given us an edge in predictive accuracy. Our investment strategies are now powered by real-time data analytics.",
+      content: "As a student renting for the first time, the plain English explanations of my lease terms were invaluable. I finally understood what I was actually agreeing to.",
       author: {
-        name: "Michael Brown",
-        role: "Data Scientist at FinTech Innovations",
+        name: "David Brown",
+        role: "Student Tenant in Leeds",
         avatar: "/placeholder.svg?height=40&width=40"
       }
     },
     {
       id: 6,
-      content: "#LogiTech's supply chain optimization tools have drastically reduced our operational costs. Efficiency and accuracy in logistics have never been better.",
+      content: "The regional settings feature is brilliant. When I moved from England to Scotland, the app automatically adjusted to show me the relevant laws and rights for my new location.",
       author: {
-        name: "Linda Wu",
-        role: "VP of Operations at LogiChain Solutions",
+        name: "Emma Taylor",
+        role: "Tenant in Aberdeen",
         avatar: "/placeholder.svg?height=40&width=40"
       }
     },
     {
       id: 7,
-      content: "#TrendSpotter's market analysis AI has transformed how we approach fashion trends. Our campaigns are now data-driven with higher customer engagement. Revolutionizing fashion marketing.",
+      content: "Using the timeline feature to track important dates has been so helpful. I never miss inspections or renewal deadlines now, and I can prepare properly for each one.",
       author: {
         name: "Aisha Khan",
-        role: "Chief Marketing Officer at Fashion Forward",
+        role: "Tenant in Manchester",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Our campaigns are now data-driven with higher customer engagement."
+      highlight: "I never miss important rental dates now."
     },
     {
       id: 8,
-      content: "Implementing #MediConnectAI in our patient care systems has improved patient outcomes significantly. Technology and healthcare working hand in hand for better health. A milestone in medical technology.",
+      content: "The flatmate agreement builder helped us agree on house rules and responsibilities up front. It's made sharing a house much more pleasant and reduced disagreements significantly.",
       author: {
         name: "Tom Chen",
-        role: "Director of IT at HealthTech Solutions",
+        role: "Tenant in Bristol",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Technology and healthcare working hand in hand for better health."
+      highlight: "Made sharing a house much more pleasant."
     },
     {
       id: 9,
-      content: "By integrating #GreenTech's sustainable energy solutions, we've seen a significant reduction in carbon footprint. Leading the way in eco-friendly business practices. Pioneering change in the industry.",
+      content: "When my boiler broke in winter, the app helped me document the issue and send an effective email with temperature readings. I had heat back within 24 hours. Absolutely worth it.",
       author: {
         name: "Carlos Gomez",
-        role: "Head of R&D at EcoInnovate",
+        role: "Tenant in Cardiff",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Leading the way in eco-friendly business practices."
+      highlight: "Had heat back within 24 hours."
     },
     {
       id: 10,
-      content: "#DesignPro's AI has streamlined our creative process, enhancing productivity and innovation. Bringing creativity and technology together. A game-changer for creative industries.",
+      content: "The rent comparison tool showed me that my landlord's proposed increase was well above the local average. I was able to negotiate a fairer price based on actual data.",
       author: {
         name: "Jake Morrison",
-        role: "CTO at SecureNet Tech",
+        role: "Tenant in Newcastle",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Bringing creativity and technology together."
+      highlight: "Negotiated a fairer rent increase."
     },
     {
       id: 11,
-      content: "#LearnSmart's AI-driven personalized learning plans have doubled student performance metrics. Education tailored to every learner's needs. Transforming the education landscape.",
+      content: "Moving every year as a student was always stressful until I started using this app. Having all my previous inventory reports and photos in one place makes comparing properties so much easier.",
       author: {
         name: "Nadia Ali",
-        role: "Product Manager at Creative Solutions",
+        role: "Student Tenant in Sheffield",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Education tailored to every learner's needs."
+      highlight: "Makes comparing rental properties easier."
     },
     {
       id: 12,
-      content: "With #CyberShield's AI-powered security systems, our data protection has been unmatched. Ensuring safety and trust in digital spaces. Redefining cybersecurity standards.",
+      content: "After finding mold in my bedroom, I used the app to create a detailed report with photos. My landlord arranged for professional treatment right away after seeing my well-documented case.",
       author: {
         name: "Sofia Patel",
-        role: "CEO at EduTech Innovations",
+        role: "Tenant in Liverpool",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Ensuring safety and trust in digital spaces."
+      highlight: "Landlord arranged professional treatment right away."
     },
-    // Add more unique testimonials for better column distribution
     {
       id: 13,
-      content: "The AI-powered recommendations from #RetailGenius have increased our average order value by 35%. Customer satisfaction is at an all-time high.",
+      content: "The contract analyzer spotted a hidden cleaning fee clause in my lease that I would have missed. I was able to discuss it with the landlord before signing and got it removed.",
       author: {
         name: "David Kim",
-        role: "E-commerce Director at ShopSmart",
+        role: "Tenant in Nottingham",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Increased our average order value by 35%."
+      highlight: "Spotted a hidden fee clause before signing."
     },
     {
       id: 14,
-      content: "#FinanceBrain's predictive analytics has transformed how we approach market forecasting. We're making more informed decisions faster than our competitors.",
+      content: "Managing repairs in my property used to be so frustrating. Now I can track all communication with my landlord in one place and have evidence of when issues were reported.",
       author: {
         name: "Jennifer Lopez",
-        role: "Investment Strategist at WealthWise",
+        role: "Tenant in Southampton",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "Making more informed decisions faster than our competitors."
+      highlight: "Evidence of when issues were reported."
     },
     {
       id: 15,
-      content: "Our content creation process was revolutionized by #ContentGenius. What used to take days now takes hours, and the quality has improved substantially.",
+      content: "I used to be intimidated by my landlord, but having access to clear information about my rights has given me confidence. I now feel empowered to raise legitimate concerns.",
       author: {
         name: "Mark Williams",
-        role: "Content Director at MediaForce",
+        role: "Tenant in Belfast",
         avatar: "/placeholder.svg?height=40&width=40"
       },
-      highlight: "What used to take days now takes hours."
+      highlight: "I now feel empowered to raise legitimate concerns."
     },
   ]
 
@@ -158,9 +157,9 @@ export default function ReviewsSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="CUSTOMER REVIEWS"
-            title="What our customers are saying"
-            description="Don't just take our word for it. See what industry professionals have to say about our AI solutions."
+            subtitle="RENTER EXPERIENCES"
+            title="Hear from people like you"
+            description="Real stories from renters across the UK who have used our app to improve their rental experience."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
