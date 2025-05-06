@@ -6,7 +6,7 @@ export enum TimelineEventType {
   RENT_DUE = 'rent_due',
   INSPECTION = 'inspection',
   MAINTENANCE = 'maintenance',
-  CUSTOM = 'custom'
+  OTHER = 'other'
 }
 
 export enum TimelineEventRecurrence {
