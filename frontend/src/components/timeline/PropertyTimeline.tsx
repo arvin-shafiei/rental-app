@@ -43,7 +43,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
   const [newEvent, setNewEvent] = useState({  
     title: '',
     description: '',
-    event_type: TimelineEventType.CUSTOM,
+    event_type: TimelineEventType.OTHER,
     start_date: format(new Date(), 'yyyy-MM-dd'),
     is_all_day: true,
     recurrence_type: TimelineEventRecurrence.NONE,
@@ -123,7 +123,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     setNewEvent({
       title: '',
       description: '',
-      event_type: TimelineEventType.CUSTOM,
+      event_type: TimelineEventType.OTHER,
       start_date: format(new Date(), 'yyyy-MM-dd'),
       is_all_day: true,
       recurrence_type: TimelineEventRecurrence.NONE,

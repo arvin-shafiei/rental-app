@@ -23,7 +23,7 @@ export default function Header() {
           </Link>
         </nav>
         <div className="flex items-center gap-4">
-          <Link href="#" className="text-sm font-medium text-gray-600 hover:text-blue-600">
+          <Link href="auth" className="text-sm font-medium text-gray-600 hover:text-blue-600">
             Login
           </Link>
           <Button className="bg-blue-500 hover:bg-blue-600 text-white">Get Started</Button>
