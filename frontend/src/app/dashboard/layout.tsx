@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
-import { Home, Building, FileText, Calendar, CheckSquare, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Home, Building, FileText, Calendar, CheckSquare, User, Settings, LogOut, ChevronDown, Mail } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import { Button } from "@/components/ui/button";
 import {
