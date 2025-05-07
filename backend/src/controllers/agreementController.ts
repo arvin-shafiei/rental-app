@@ -67,7 +67,7 @@ export class AgreementController {
    */
   async createAgreement(req: Request, res: Response): Promise<void> {
     const userId = (req as any).user?.id;
-    const { title, propertyId, checkItems } = req.body;
+    const { title, propertyId, checkItems, dueDate } = req.body;
     
     console.log(`[AgreementController] Creating agreement for property: ${propertyId}`);
     
@@ -83,7 +83,8 @@ export class AgreementController {
       const agreement = await agreementService.createAgreement(userId, {
         title,
         propertyId,
-        checkItems
+        checkItems,
+        dueDate
       });
       
       console.log(`[AgreementController] Agreement created successfully with ID: ${agreement.id}`);

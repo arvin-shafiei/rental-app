@@ -25,6 +25,8 @@ export interface CheckItem {
   assignedTo?: string | null;
   completed_by?: string | null;
   completed_at?: string | null;
+  notificationDaysBefore?: number | null;
+  event_id?: string | null;
 }
 
 export interface Agreement {
@@ -34,12 +36,15 @@ export interface Agreement {
   created_by: string;
   created_at: string;
   updated_at: string;
+  due_date?: string | null;
   check_items: Array<{
     text: string;
     checked: boolean;
     assigned_to?: string | null;
     completed_by?: string | null;
     completed_at?: string | null;
+    notification_days_before?: number | null;
+    event_id?: string | null;
   }>;
   property?: {
     id: string;
@@ -52,10 +57,12 @@ export interface ApiCheckItem {
   text: string;
   checked: boolean;
   assigned_to: string | null;
+  notification_days_before?: number | null;
 }
 
 export interface AgreementData {
   title: string;
   propertyId: string;
   checkItems: ApiCheckItem[];
+  dueDate?: string | null;
 } 

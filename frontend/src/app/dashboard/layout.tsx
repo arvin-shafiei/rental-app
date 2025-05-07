@@ -41,6 +41,7 @@ export default function DashboardLayout({
     { href: '/dashboard/timeline', label: 'Timeline', icon: Calendar },
     { href: '/dashboard/agreement-builder', label: 'Agreement Builder', icon: CheckSquare },
     { href: '/dashboard/contract-scanner', label: 'Contract Scanner', icon: FileText },
+    { href: '/dashboard/contact-landlord', label: 'Contact Landlord', icon: Mail },
   ];
 
   return (

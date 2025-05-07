@@ -18,8 +18,9 @@ export default function AgreementBuilder() {
   
   // State for syncing between tabs
   const [lastCreatedPropertyId, setLastCreatedPropertyId] = useState<string>('');
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  // Fetch properties on initial load
+  // Fetch properties on initial load and when refresh is triggered
   useEffect(() => {
     const fetchProperties = async () => {
       try {
@@ -43,12 +44,22 @@ export default function AgreementBuilder() {
     };
 
     fetchProperties();
-  }, []);
+  }, [refreshTrigger]);
 
   // Handler for when a new agreement is created
   const handleAgreementCreated = (propertyId: string) => {
     setLastCreatedPropertyId(propertyId);
     setActiveTab('view');
+    setRefreshTrigger(prev => prev + 1);
+  };
+  
+  // Handler for when an agreement is deleted
+  const handleAgreementDeleted = () => {
+    setRefreshTrigger(prev => prev + 1);
+    toast({
+      title: 'Success',
+      description: 'Agreement deleted successfully',
+    });
   };
 
   return (
@@ -83,6 +94,7 @@ export default function AgreementBuilder() {
           properties={properties} 
           isLoading={isLoading}
           selectedPropertyId={lastCreatedPropertyId}
+          onAgreementDeleted={handleAgreementDeleted}
         />
       )}
     </div>

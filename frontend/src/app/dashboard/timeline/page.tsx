@@ -128,13 +128,12 @@ export default function TimelinePage() {
         )
       );
       
-      // Make the API call
+      // Make the API call in the background
       await updateTimelineEvent(eventToToggle.id, {
         is_completed: !eventToToggle.is_completed
       });
       
-      // Refresh the events list to ensure consistency with server
-      await fetchEvents();
+      // No refresh needed - the UI is already updated
     } catch (err: any) {
       setError(err.message || 'Failed to update event');
       console.error('Error updating event completion status:', err);
@@ -226,6 +225,8 @@ export default function TimelinePage() {
         return 'Inspection';
       case TimelineEventType.MAINTENANCE:
         return 'Maintenance';
+      case TimelineEventType.AGREEMENT_TASK:
+        return 'Agreement Task';
       case TimelineEventType.OTHER:
         return 'Other';
       default:
@@ -441,6 +442,13 @@ export default function TimelinePage() {
                   >
                     Maintenance
                     {typeFilter === TimelineEventType.MAINTENANCE && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.AGREEMENT_TASK)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Agreement Task
+                    {typeFilter === TimelineEventType.AGREEMENT_TASK && <Check className="h-4 w-4 text-blue-600" />}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => setTypeFilter(TimelineEventType.OTHER)}

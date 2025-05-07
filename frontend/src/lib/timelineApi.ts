@@ -6,6 +6,7 @@ export enum TimelineEventType {
   RENT_DUE = 'rent_due',
   INSPECTION = 'inspection',
   MAINTENANCE = 'maintenance',
+  AGREEMENT_TASK = 'agreement_task',
   OTHER = 'other'
 }
 
@@ -111,6 +112,8 @@ export const createTimelineEvent = async (eventData: CreateTimelineEventDTO) => 
 
 /**
  * Update an existing timeline event
+ * If the event is an agreement task event, we need to update
+ * the associated agreement item as well
  */
 export const updateTimelineEvent = async (id: string, eventData: Partial<UpdateTimelineEventDTO>) => {
   return fetchFromApi(`/timeline/events/${id}`, {
