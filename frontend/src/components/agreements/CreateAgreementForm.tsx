@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Card, CardHeader, CardTitle, CardDescription, CardContent, 
-  Button, Label, Input, Select, SelectItem, toast 
+  Button, Input, toast 
 } from '@/components/ui/FormElements';
 import { format, parseISO, isValid, addDays } from 'date-fns';
-import { ArrowLeft, ArrowRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, ChevronsUpDown, Check } from 'lucide-react';
 import ChecklistItem from './ChecklistItem';
 import { Property, PropertyUsers, CheckItem, AgreementData, ApiCheckItem } from '@/types/agreement';
 import { getPropertyUsers, createAgreement, getPropertyAgreements } from '@/lib/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 interface CreateAgreementFormProps {
   properties: Property[];
@@ -228,6 +236,16 @@ const CreateAgreementForm = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  // Find the selected property object
+  const selectedPropertyObject = properties.find(p => p.id === selectedProperty);
+
+  // Auto select the first property if none selected and properties are available
+  useEffect(() => {
+    if (!selectedProperty && properties.length > 0 && !isLoading) {
+      setSelectedProperty(properties[0].id);
+    }
+  }, [properties, isLoading, selectedProperty]);
+
   // Fetch property users when a property is selected
   useEffect(() => {
     const fetchPropertyUsers = async () => {
@@ -387,47 +405,67 @@ const CreateAgreementForm = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="property">Select Property</Label>
+          <label className="block text-sm font-medium text-gray-700">Select Property</label>
           {isLoading ? (
-            <p className="text-sm text-black">Loading properties...</p>
+            <div className="h-10 bg-gray-100 animate-pulse rounded"></div>
           ) : (
-            <Select
-              value={selectedProperty}
-              onValueChange={(value: string) => setSelectedProperty(value)}
-              placeholder="Select a property"
-            >
-              {Array.isArray(properties) && properties.map((property) => (
-                <SelectItem key={property.id} value={property.id}>
-                  {property.name || property.address}
-                </SelectItem>
-              ))}
-            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 text-gray-600 focus:ring-blue-500 focus:border-blue-500">
+                <span className="truncate">
+                  {selectedPropertyObject ? selectedPropertyObject.name || selectedPropertyObject.address : 'Select a property'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-500 flex-shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full max-h-[400px] overflow-y-auto" align="start">
+                <DropdownMenuLabel>Your Properties</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {properties.length === 0 ? (
+                  <DropdownMenuItem disabled>No properties available</DropdownMenuItem>
+                ) : (
+                  properties.map((property) => (
+                    <DropdownMenuItem
+                      key={property.id}
+                      onClick={() => setSelectedProperty(property.id)}
+                    >
+                      <span>{property.name || property.address}</span>
+                      {property.id === selectedProperty && (
+                        <Check className="ml-auto h-4 w-4 text-blue-600" />
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
         {selectedProperty && (
           <div className="space-y-2">
-            <Label>Tenants who will receive this agreement:</Label>
-            <div className="border rounded-md p-2 bg-gray-50">
+            <label className="block text-sm font-medium text-gray-700">Tenants who will receive this agreement:</label>
+            <div className="border rounded-md p-3 bg-gray-50">
               {loading ? (
-                <p className="text-sm text-black">Loading tenants...</p>
+                <div className="flex space-x-2">
+                  <div className="h-5 w-5 bg-gray-100 rounded-full animate-pulse"></div>
+                  <div className="h-5 w-32 bg-gray-100 rounded animate-pulse"></div>
+                </div>
               ) : propertyUsers.length > 0 ? (
-                <ul className="text-sm text-black">
+                <ul className="text-sm text-gray-700 space-y-1">
                   {propertyUsers.map((user) => (
-                    <li key={user.id}>
+                    <li key={user.id} className="flex items-center">
+                      <div className="h-2 w-2 bg-blue-500 rounded-full mr-2"></div>
                       {user.profile?.display_name || user.profile?.email || user.user_id}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-black">No tenants found for this property</p>
+                <p className="text-sm text-gray-500">No tenants found for this property</p>
               )}
             </div>
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="title">Agreement Title</Label>
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700">Agreement Title</label>
           <Input
             id="title"
             placeholder="Enter agreement title"
@@ -437,21 +475,26 @@ const CreateAgreementForm = ({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dueDate">Due Date</Label>
+          <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">Due Date</label>
           <DatePicker 
             selectedDate={agreementDueDate} 
             onDateChange={setAgreementDueDate} 
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <Label>Checklist Items</Label>
-            <Button variant="outline" size="sm" onClick={handleAddCheckItem} className="bg-blue-100 text-blue-700 px-3 py-1 rounded">
+            <label className="block text-sm font-medium text-gray-700">Checklist Items</label>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleAddCheckItem} 
+              className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded"
+            >
               Add Item
             </Button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 border border-gray-200 rounded-md p-4">
             {checkItems.map((item) => (
               <ChecklistItem
                 key={item.id}
@@ -468,7 +511,7 @@ const CreateAgreementForm = ({
         </div>
 
         <Button 
-          className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" 
+          className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 mt-4" 
           onClick={handleSubmit}
           disabled={submitting}
         >
