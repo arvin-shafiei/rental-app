@@ -225,6 +225,8 @@ export default function TimelinePage() {
         return 'Inspection';
       case TimelineEventType.MAINTENANCE:
         return 'Maintenance';
+      case TimelineEventType.AGREEMENT_TASK:
+        return 'Agreement Task';
       case TimelineEventType.OTHER:
         return 'Other';
       default:
@@ -440,6 +442,13 @@ export default function TimelinePage() {
                   >
                     Maintenance
                     {typeFilter === TimelineEventType.MAINTENANCE && <Check className="h-4 w-4 text-blue-600" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setTypeFilter(TimelineEventType.AGREEMENT_TASK)}
+                    className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                  >
+                    Agreement Task
+                    {typeFilter === TimelineEventType.AGREEMENT_TASK && <Check className="h-4 w-4 text-blue-600" />}
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={() => setTypeFilter(TimelineEventType.OTHER)}

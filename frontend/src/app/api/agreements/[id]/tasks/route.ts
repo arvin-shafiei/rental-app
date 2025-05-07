@@ -22,7 +22,7 @@ export async function PUT(
     
     // Parse request body
     const body = await req.json();
-    const { taskIndex, action, userId } = body;
+    const { taskIndex, action, userId, notificationDays } = body;
     
     if (taskIndex === undefined || !action) {
       return NextResponse.json(
@@ -36,7 +36,7 @@ export async function PUT(
     const endpoint = `/agreements/${agreementId}/tasks`;
     
     console.log('Forwarding request to backend at:', `${backendUrl}${endpoint}`);
-    console.log('Task update data:', { taskIndex, action, userId });
+    console.log('Task update data:', { taskIndex, action, userId, notificationDays });
     
     // Make request to the backend API
     const response = await fetch(`${backendUrl}${endpoint}`, {
@@ -45,7 +45,7 @@ export async function PUT(
         'Authorization': authHeader,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ taskIndex, action, userId }),
+      body: JSON.stringify({ taskIndex, action, userId, notificationDays }),
       next: { revalidate: 0 } // Don't cache this request
     });
     

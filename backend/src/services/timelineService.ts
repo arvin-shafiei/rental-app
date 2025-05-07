@@ -45,7 +45,7 @@ export class TimelineService {
     // First verify the user owns this event
     const { data: existingEvent } = await supabaseAdmin
       .from('timeline_events')
-      .select('user_id')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -54,6 +54,7 @@ export class TimelineService {
       return null;
     }
 
+    // Update the timeline event
     const { data, error } = await supabaseAdmin
       .from('timeline_events')
       .update({
@@ -67,6 +68,64 @@ export class TimelineService {
     if (error) {
       console.error('Error updating timeline event:', error);
       return null;
+    }
+
+    // If this is an agreement task event and completion status has changed,
+    // we need to update the agreement check item as well
+    if (existingEvent.event_type === 'agreement_task' && 
+        'is_completed' in updateData && 
+        existingEvent.metadata && 
+        existingEvent.metadata.agreement_id && 
+        existingEvent.metadata.item_index !== undefined) {
+      
+      try {
+        // Get the agreement
+        const { data: agreement, error: agreementError } = await supabaseAdmin
+          .from('agreements')
+          .select('check_items')
+          .eq('id', existingEvent.metadata.agreement_id)
+          .single();
+        
+        if (agreementError || !agreement) {
+          console.error('Error fetching agreement:', agreementError);
+        } else {
+          // Update the check item's checked status
+          const checkItems = agreement.check_items;
+          const itemIndex = existingEvent.metadata.item_index;
+          
+          if (Array.isArray(checkItems) && itemIndex < checkItems.length) {
+            // Create a deep copy of the check items array
+            const updatedCheckItems = JSON.parse(JSON.stringify(checkItems));
+            
+            // Update the specific item
+            updatedCheckItems[itemIndex].checked = !!updateData.is_completed;
+            
+            // If completed, add completed_by and completed_at
+            if (updateData.is_completed) {
+              updatedCheckItems[itemIndex].completed_by = userId;
+              updatedCheckItems[itemIndex].completed_at = new Date().toISOString();
+            } else {
+              // If uncompleted, remove these fields
+              delete updatedCheckItems[itemIndex].completed_by;
+              delete updatedCheckItems[itemIndex].completed_at;
+            }
+            
+            // Update the agreement
+            const { error: updateError } = await supabaseAdmin
+              .from('agreements')
+              .update({ check_items: updatedCheckItems })
+              .eq('id', existingEvent.metadata.agreement_id);
+            
+            if (updateError) {
+              console.error('Error updating agreement check item:', updateError);
+            } else {
+              console.log(`Successfully updated agreement ${existingEvent.metadata.agreement_id} check item ${itemIndex}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error syncing agreement check item completion status:', err);
+      }
     }
 
     return data as TimelineEvent;

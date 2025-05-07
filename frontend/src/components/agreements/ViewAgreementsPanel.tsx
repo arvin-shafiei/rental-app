@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, CardHeader, CardTitle, CardDescription, CardContent, 
-  Label, Select, SelectItem, toast 
+  Label, Select, SelectItem, toast, Button 
 } from '@/components/ui/FormElements';
 import ViewChecklistItem from './ViewChecklistItem';
 import { Property, PropertyUsers, Agreement } from '@/types/agreement';
-import { getPropertyAgreements, getPropertyUsers, updateAgreementTask } from '@/lib/api';
+import { getPropertyAgreements, getPropertyUsers, updateAgreementTask, deleteAgreement } from '@/lib/api';
+import { Trash2 } from 'lucide-react';
 
 interface ViewAgreementsPanelProps {
   properties: Property[];
   isLoading: boolean;
   selectedPropertyId?: string;
+  onAgreementDeleted?: () => void;
 }
 
 const ViewAgreementsPanel = ({ 
   properties, 
   isLoading,
-  selectedPropertyId 
+  selectedPropertyId,
+  onAgreementDeleted
 }: ViewAgreementsPanelProps) => {
   const [viewSelectedProperty, setViewSelectedProperty] = useState<string>(selectedPropertyId || '');
   const [agreements, setAgreements] = useState<Agreement[]>([]);
@@ -28,6 +31,7 @@ const ViewAgreementsPanel = ({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [viewPropertyUsers, setViewPropertyUsers] = useState<PropertyUsers[]>([]);
   const [assigningItem, setAssigningItem] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   // Fetch agreements when a property is selected
   useEffect(() => {
@@ -127,12 +131,19 @@ const ViewAgreementsPanel = ({
   }, [selectedPropertyId]);
 
   // Function to handle assigning a user to a task
-  const handleAssignUser = async (itemIndex: number, userId: string | null) => {
+  const handleAssignUser = async (itemIndex: number, userId: string | null, notificationDays?: number | null) => {
     if (!selectedAgreementDetails) return;
     
     try {
       setAssigningItem(itemIndex.toString());
       
+      console.log('Assigning task with notification days:', {
+        itemIndex,
+        userId,
+        notificationDays,
+        notificationDaysType: typeof notificationDays
+      });
+
       // Get current user ID (simplified for example)
       const currentUser = viewPropertyUsers.find(u => u.user_role === userRole);
       const currentUserId = currentUser?.user_id;
@@ -140,6 +151,8 @@ const ViewAgreementsPanel = ({
       // Create a copy of the agreement's check items for local state update
       const updatedItems = [...selectedAgreementDetails.check_items];
       const currentItem = updatedItems[itemIndex];
+      
+      console.log('Current item before update:', currentItem);
       
       // Check permissions (client-side validation)
       if (userRole !== 'owner') {
@@ -173,7 +186,8 @@ const ViewAgreementsPanel = ({
           selectedAgreementDetails.id,
           itemIndex,
           action,
-          userId
+          userId,
+          notificationDays
         );
         
         // If successful, update local state
@@ -181,7 +195,8 @@ const ViewAgreementsPanel = ({
           // Update the item in our local state
           updatedItems[itemIndex] = {
             ...currentItem,
-            assigned_to: userId
+            assigned_to: userId,
+            notification_days_before: notificationDays
           };
           
           // Update selected agreement details
@@ -199,7 +214,9 @@ const ViewAgreementsPanel = ({
           
           toast({
             title: 'Success',
-            description: userId ? 'Task assigned successfully' : 'Task unassigned successfully',
+            description: userId 
+              ? 'Task assigned successfully' 
+              : 'Task unassigned successfully',
           });
         }
       } catch (error: any) {
@@ -313,12 +330,52 @@ const ViewAgreementsPanel = ({
     return user?.profile?.email || user?.profile?.display_name || userId;
   };
 
+  // Function to handle agreement deletion
+  const handleDeleteAgreement = async () => {
+    if (!selectedAgreementDetails) return;
+    
+    // Confirm with user before deletion
+    if (!window.confirm(`Are you sure you want to delete the agreement "${selectedAgreementDetails.title}"? This cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      setDeleting(true);
+      
+      await deleteAgreement(selectedAgreementDetails.id);
+      
+      // Remove the agreement from state
+      setAgreements(agreements.filter(a => a.id !== selectedAgreementDetails.id));
+      setSelectedAgreement('');
+      setSelectedAgreementDetails(null);
+      
+      toast({
+        title: 'Success',
+        description: 'Agreement deleted successfully',
+      });
+      
+      // Call the callback if it exists
+      if (onAgreementDeleted) {
+        onAgreementDeleted();
+      }
+    } catch (error) {
+      console.error('Error deleting agreement:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete agreement',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>View Agreements</CardTitle>
         <CardDescription>
-          View and manage existing agreements for your properties
+          View and manage property agreements and check items
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -332,10 +389,11 @@ const ViewAgreementsPanel = ({
               onValueChange={(value: string) => {
                 setViewSelectedProperty(value);
                 setSelectedAgreement('');
+                setSelectedAgreementDetails(null);
               }}
               placeholder="Select a property"
             >
-              {Array.isArray(properties) && properties.map((property) => (
+              {properties.map((property) => (
                 <SelectItem key={property.id} value={property.id}>
                   {property.name || property.address}
                 </SelectItem>
@@ -343,10 +401,10 @@ const ViewAgreementsPanel = ({
             </Select>
           )}
         </div>
-        
+
         {viewSelectedProperty && (
           <div className="space-y-2">
-            <Label htmlFor="agreements">Select Agreement</Label>
+            <Label htmlFor="view-agreement">Select Agreement</Label>
             {loadingAgreements ? (
               <p className="text-sm text-black">Loading agreements...</p>
             ) : (
@@ -355,49 +413,66 @@ const ViewAgreementsPanel = ({
                 onValueChange={(value: string) => setSelectedAgreement(value)}
                 placeholder="Select an agreement"
               >
-                {agreements.length > 0 ? (
-                  agreements.map((agreement) => (
-                    <SelectItem key={agreement.id} value={agreement.id}>
-                      {agreement.title}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="" disabled>No agreements found</SelectItem>
-                )}
+                {agreements.map((agreement) => (
+                  <SelectItem key={agreement.id} value={agreement.id}>
+                    {agreement.title}
+                  </SelectItem>
+                ))}
               </Select>
             )}
           </div>
         )}
-        
+
+        {/* Display selected agreement details */}
         {selectedAgreementDetails && (
-          <div className="border rounded-md p-4 mt-4">
-            <h3 className="text-lg font-semibold mb-2">{selectedAgreementDetails.title}</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Created: {new Date(selectedAgreementDetails.created_at).toLocaleDateString()}
-            </p>
+          <div className="space-y-4 mt-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">{selectedAgreementDetails.title}</h3>
+              
+              {/* Delete button - only show for property owners */}
+              {userRole === 'owner' && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleDeleteAgreement}
+                  disabled={deleting}
+                  className="flex gap-2 items-center"
+                >
+                  <Trash2 size={16} />
+                  {deleting ? 'Deleting...' : 'Delete Agreement'}
+                </Button>
+              )}
+            </div>
             
-            <h4 className="font-medium mb-2">Checklist Items:</h4>
-            {selectedAgreementDetails.check_items && selectedAgreementDetails.check_items.length > 0 ? (
-              <div className="space-y-2">
-                {selectedAgreementDetails.check_items.map((item, index) => (
-                  <ViewChecklistItem
-                    key={index}
-                    item={item}
-                    index={index}
-                    userRole={userRole}
-                    currentUserId={currentUserId}
-                    viewPropertyUsers={viewPropertyUsers}
-                    updatingItem={updatingItem}
-                    assigningItem={assigningItem}
-                    onUpdateCheckItem={handleUpdateCheckItem}
-                    onAssignUser={handleAssignUser}
-                    getUserEmailById={getUserEmailById}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600">No checklist items found</p>
-            )}
+            <p className="text-sm text-gray-500">
+              Created at: {new Date(selectedAgreementDetails.created_at).toLocaleDateString()}
+            </p>
+
+            {/* Display checklist items */}
+            <div className="space-y-3 mt-4">
+              <h4 className="text-md font-medium">Checklist Items</h4>
+              {selectedAgreementDetails.check_items.length === 0 ? (
+                <p className="text-sm text-gray-500">No checklist items</p>
+              ) : (
+                <ul className="space-y-2">
+                  {selectedAgreementDetails.check_items.map((item, index) => (
+                    <ViewChecklistItem
+                      key={index}
+                      item={item}
+                      users={viewPropertyUsers}
+                      index={index}
+                      onUpdateCheckItem={checked => handleUpdateCheckItem(index, checked)}
+                      onAssignUser={(userId, notificationDays) => handleAssignUser(index, userId, notificationDays)}
+                      isUpdating={updatingItem === index.toString()}
+                      isAssigning={assigningItem === index.toString()}
+                      canEdit={userRole === 'owner'}
+                      currentUserId={currentUserId}
+                      getUserEmail={getUserEmailById}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
