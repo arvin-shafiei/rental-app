@@ -12,12 +12,14 @@ interface CreateAgreementDTO {
   title: string;
   propertyId: string;
   checkItems: CheckItem[];
+  dueDate?: string | null;
 }
 
 interface UpdateAgreementDTO {
   id: string;
   title?: string;
   checkItems?: CheckItem[];
+  dueDate?: string | null;
 }
 
 interface Agreement {
@@ -27,6 +29,7 @@ interface Agreement {
   created_by: string;
   created_at: string;
   updated_at: string;
+  due_date?: string | null;
   check_items: CheckItem[];
   property?: {
     id: string;
@@ -154,7 +157,8 @@ export class AgreementService {
           title: agreementData.title,
           property_id: agreementData.propertyId,
           created_by: userId,
-          check_items: agreementData.checkItems
+          check_items: agreementData.checkItems,
+          due_date: agreementData.dueDate
         })
         .select()
         .single();
@@ -207,6 +211,7 @@ export class AgreementService {
       const updateData: any = {};
       if (agreementData.title) updateData.title = agreementData.title;
       if (agreementData.checkItems) updateData.check_items = agreementData.checkItems;
+      if (agreementData.dueDate !== undefined) updateData.due_date = agreementData.dueDate;
 
       // Update the agreement
       const { data, error } = await supabaseAdmin

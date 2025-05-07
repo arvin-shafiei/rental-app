@@ -237,18 +237,29 @@ export interface CheckItem {
   assigned_to?: string | null;
   completed_by?: string | null;
   completed_at?: string | null;
+  notification_days_before?: number | null;
 }
 
 export interface AgreementData {
   title: string;
   propertyId: string;
   checkItems: CheckItem[];
+  dueDate?: string;
 }
 
 export const createAgreement = async (agreementData: AgreementData) => {
   return fetchFromApi('/agreements', {
     method: 'POST',
     body: JSON.stringify(agreementData)
+  });
+};
+
+/**
+ * Delete an agreement
+ */
+export const deleteAgreement = async (agreementId: string) => {
+  return fetchFromApi(`/agreements/${agreementId}`, {
+    method: 'DELETE'
   });
 };
 
@@ -288,15 +299,26 @@ export async function updateAgreementTask(
   agreementId: string,
   taskIndex: number,
   action: 'assign' | 'unassign' | 'complete',
-  userId?: string | null
+  userId?: string | null,
+  notificationDays?: number | null
 ): Promise<any> {
   try {
+    console.log('Sending to API:', {
+      agreementId,
+      taskIndex,
+      action,
+      userId,
+      notificationDays,
+      notificationDaysType: typeof notificationDays
+    });
+    
     return fetchFromApi(`/agreements/${agreementId}/tasks`, {
       method: 'PUT',
       body: JSON.stringify({
         taskIndex,
         action,
-        userId
+        userId,
+        notificationDays
       })
     });
   } catch (error: any) {

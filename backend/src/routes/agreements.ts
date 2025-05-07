@@ -55,7 +55,7 @@ router.put('/:id', agreementController.updateAgreement.bind(agreementController)
 router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { taskIndex, action, userId } = req.body;
+    const { taskIndex, action, userId, notificationDays } = req.body;
     const user = req.user;
 
     if (!user) {
@@ -63,6 +63,11 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
     }
 
     console.log(`[AgreementController] Updating task for agreement ${id}, task index ${taskIndex}, action: ${action}`);
+    console.log(`[AgreementController] Task update details:`, {
+      userId,
+      notificationDays,
+      notificationDaysType: notificationDays !== undefined ? typeof notificationDays : 'undefined'
+    });
     
     if (taskIndex === undefined || !action) {
       return res.status(400).json({ message: 'Missing required fields: taskIndex and action' });
@@ -83,6 +88,8 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
     }
 
     const currentTask = agreement.check_items[taskIndex];
+    console.log(`[AgreementController] Current task state:`, currentTask);
+    
     const userRole = req.propertyRole; // Set by the controller
 
     // Handle different actions with permission checks
@@ -90,6 +97,12 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
       // Owners can assign to anyone, tenants can only self-assign
       if (userRole === 'owner' || (userRole === 'tenant' && userId === user.id)) {
         currentTask.assigned_to = userId;
+        
+        // Set notification days if provided
+        if (notificationDays !== undefined) {
+          currentTask.notification_days_before = notificationDays;
+          console.log(`[AgreementController] Setting notification_days_before to:`, notificationDays);
+        }
       } else {
         return res.status(403).json({ message: 'You can only assign tasks to yourself' });
       }
@@ -98,6 +111,10 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
       // Owners can unassign anyone, tenants can only unassign themselves
       if (userRole === 'owner' || (userRole === 'tenant' && currentTask.assigned_to === user.id)) {
         currentTask.assigned_to = null;
+        
+        // Clear notification days when unassigning
+        currentTask.notification_days_before = null;
+        console.log(`[AgreementController] Clearing notification_days_before`);
       } else {
         return res.status(403).json({ message: 'You can only unassign tasks assigned to you' });
       }
@@ -116,15 +133,23 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
         if (currentTask.checked) {
           currentTask.completed_by = user.id;
           currentTask.completed_at = new Date().toISOString();
+          
+          // Preserve notification_days_before - don't modify it
+          console.log(`[AgreementController] Preserving notification_days_before value:`, currentTask.notification_days_before);
         } else {
           // If unchecking, remove completion details
           currentTask.completed_by = null;
           currentTask.completed_at = null;
+          
+          // Preserve notification_days_before - don't modify it
+          console.log(`[AgreementController] Preserving notification_days_before value:`, currentTask.notification_days_before);
         }
       } else {
         return res.status(403).json({ message: 'You can only complete tasks assigned to you' });
       }
     }
+
+    console.log(`[AgreementController] Updated task state before saving:`, currentTask);
 
     // Update the agreement with modified task
     const updatedAgreement = await agreementController.updateTasksOnly(id, agreement.check_items, req, res);
