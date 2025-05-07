@@ -1,13 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Upload, FileText, Search, History, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Search, History, Calendar, Clock, Folder, Loader2, AlertTriangle, X, Check, ChevronsUpDown } from 'lucide-react';
 import Link from 'next/link';
 import ContractUploader from '@/components/contracts/ContractUploader';
+import ContractHistoryViewer from '@/components/contracts/ContractHistoryViewer';
 import dynamic from 'next/dynamic';
-import { scanContractDocument } from '@/lib/api';
+import { scanContractDocument, getProperties, getPropertyDocuments } from '@/lib/api';
 import { supabase } from '@/lib/supabase/client';
 import { fetchFromApi } from '@/lib/api';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 
 // Use dynamic imports with proper type declarations
 const DynamicPropertyDocumentSelector = dynamic(
@@ -27,27 +36,62 @@ interface ContractSummary {
   user_id?: string;
 }
 
+interface PropertyDocument {
+  id: string;
+  filename: string;
+  path: string;
+  url?: string;
+  metadata?: {
+    size: number;
+  };
+  created_at?: string;
+}
+
+interface DocumentCategory {
+  documentType: string;
+  documents: PropertyDocument[];
+}
+
 export default function ContractScannerPage() {
   const [scanResults, setScanResults] = useState<any | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [isFileScanning, setIsFileScanning] = useState(false);
+  const [isDocumentScanning, setIsDocumentScanning] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [selectedDocumentPath, setSelectedDocumentPath] = useState<string>('');
   const [scanError, setScanError] = useState<string | null>(null);
   const [summaries, setSummaries] = useState<ContractSummary[]>([]);
   const [summariesLoading, setSummariesLoading] = useState(true);
   const [summariesError, setSummariesError] = useState<string | null>(null);
+  const [documentCategories, setDocumentCategories] = useState<DocumentCategory[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Array<{id: string, name: string}>>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
+  const [propertiesError, setPropertiesError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMoreSummaries, setHasMoreSummaries] = useState(true);
+  const pageSize = 5;
 
   // Helper function to fetch summaries using the API helper
-  const fetchUserContractSummaries = async (userId: string) => {
+  const fetchUserContractSummaries = async (userId: string, currentPage: number = 1, append: boolean = false) => {
     try {
-      console.log(`Fetching contract summaries for user: ${userId}`);
+      console.log(`Fetching contract summaries for user: ${userId}, page: ${currentPage}`);
       
       // Use the fetchFromApi helper which handles auth properly
-      const result = await fetchFromApi(`/contracts/summaries?userId=${userId}`);
+      const result = await fetchFromApi(`/contracts/summaries?userId=${userId}&page=${currentPage}&limit=${pageSize}`);
       console.log('Contract summaries API response:', result);
       
       if (result && result.success && Array.isArray(result.data)) {
         console.log(`Received ${result.data.length} contract summaries`);
-        setSummaries(result.data);
+        
+        if (append) {
+          setSummaries(prev => [...prev, ...result.data]);
+        } else {
+          setSummaries(result.data);
+        }
+        
+        // Check if we have more summaries to load
+        setHasMoreSummaries(result.data.length === pageSize);
       } else {
         console.error('Invalid response format:', result);
         setSummariesError('Could not load contract history');
@@ -57,6 +101,22 @@ export default function ContractScannerPage() {
       setSummariesError(error.message || 'Failed to load summaries');
     } finally {
       setSummariesLoading(false);
+    }
+  };
+
+  // Load more summaries when requested
+  const loadMoreSummaries = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      
+      if (userId) {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        await fetchUserContractSummaries(userId, nextPage, true);
+      }
+    } catch (error) {
+      console.error('Error loading more summaries:', error);
     }
   };
 
@@ -78,7 +138,7 @@ export default function ContractScannerPage() {
         }
         
         // Use our helper function to fetch summaries
-        await fetchUserContractSummaries(userId);
+        await fetchUserContractSummaries(userId, 1, false);
       } catch (error: any) {
         console.error('Error in fetchSummaries:', error);
         setSummariesLoading(false);
@@ -88,15 +148,78 @@ export default function ContractScannerPage() {
     fetchSummaries();
   }, []);
 
-  const handleScanContract = async (file: File | string) => {
-    setIsScanning(true);
+  // Fetch properties on component mount
+  useEffect(() => {
+    const fetchProperties = async () => {
+      setPropertiesLoading(true);
+      setPropertiesError(null);
+      
+      try {
+        const result = await getProperties();
+        
+        if (result && result.data) {
+          setProperties(result.data);
+          // Set the first property as selected by default if available
+          if (result.data.length > 0) {
+            setSelectedPropertyId(result.data[0].id);
+          }
+        } else {
+          setPropertiesError('Failed to load properties');
+        }
+      } catch (err: any) {
+        console.error('Error fetching properties:', err);
+        setPropertiesError(err.message || 'Failed to load properties');
+      } finally {
+        setPropertiesLoading(false);
+      }
+    };
+    
+    fetchProperties();
+  }, []);
+
+  // Fetch documents when a property is selected
+  useEffect(() => {
+    if (!selectedPropertyId) {
+      setDocumentCategories([]);
+      return;
+    }
+    
+    const fetchDocuments = async () => {
+      setIsLoadingDocuments(true);
+      setDocumentError(null);
+      
+      try {
+        const response = await getPropertyDocuments(selectedPropertyId);
+        
+        if (response.success && Array.isArray(response.data)) {
+          // Filter document categories to only include contracts
+          const contractDocuments = response.data.filter((category: DocumentCategory) => 
+            category.documentType.toLowerCase().includes('contract') ||
+            category.documentType.toLowerCase().includes('lease') || 
+            category.documentType.toLowerCase().includes('agreement') ||
+            category.documentType.toLowerCase().includes('rental')
+          );
+          setDocumentCategories(contractDocuments);
+        } else {
+          setDocumentError('Failed to load documents');
+        }
+      } catch (err: any) {
+        console.error('Error fetching documents:', err);
+        setDocumentError(err.message || 'Failed to load documents');
+      } finally {
+        setIsLoadingDocuments(false);
+      }
+    };
+    
+    fetchDocuments();
+  }, [selectedPropertyId]);
+
+  // Updated handler for file uploads
+  const handleFileScan = async (file: File) => {
+    setIsFileScanning(true);
     setScanError(null);
     
     try {
-      // In a real application, this would call the backend API
-      // For now, we'll use a mock response after a delay to simulate processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       // We'll now call the real API instead of using mock data
       const response = await scanContractDocument(file);
       
@@ -110,7 +233,7 @@ export default function ContractScannerPage() {
           const userId = sessionData?.session?.user?.id;
           
           if (userId) {
-            await fetchUserContractSummaries(userId);
+            await fetchUserContractSummaries(userId, 1, false);
           }
         } catch (err) {
           console.error('Failed to refresh summaries after scan:', err);
@@ -122,13 +245,76 @@ export default function ContractScannerPage() {
       console.error('Error scanning contract:', error);
       setScanError('Failed to scan contract. Please try again later.');
     } finally {
-      setIsScanning(false);
+      setIsFileScanning(false);
     }
+  };
+
+  // Updated handler for document scanning
+  const handleDocumentScan = async (documentPath: string) => {
+    setIsDocumentScanning(true);
+    setScanError(null);
+    
+    try {
+      const response = await scanContractDocument(documentPath);
+      
+      if (response.success && response.data) {
+        setScanResults(response.data);
+        
+        // Refresh summaries after scanning
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const userId = sessionData?.session?.user?.id;
+          
+          if (userId) {
+            await fetchUserContractSummaries(userId, 1, false);
+          }
+        } catch (err) {
+          console.error('Failed to refresh summaries after scan:', err);
+        }
+      } else {
+        setScanError('Failed to analyze contract');
+      }
+    } catch (error) {
+      console.error('Error scanning contract:', error);
+      setScanError('Failed to scan contract. Please try again later.');
+    } finally {
+      setIsDocumentScanning(false);
+    }
+  };
+
+  // Helper function to get file icon based on file type
+  const getFileIcon = (filename: string) => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) {
+      return <FileText className="h-6 w-6 text-blue-500" />;
+    } else if (['pdf'].includes(extension || '')) {
+      return <FileText className="h-6 w-6 text-red-500" />;
+    } else if (['doc', 'docx'].includes(extension || '')) {
+      return <FileText className="h-6 w-6 text-blue-700" />;
+    } else if (['xls', 'xlsx', 'csv'].includes(extension || '')) {
+      return <FileText className="h-6 w-6 text-green-600" />;
+    } else if (['ppt', 'pptx'].includes(extension || '')) {
+      return <FileText className="h-6 w-6 text-orange-500" />;
+    } else {
+      return <FileText className="h-6 w-6 text-gray-500" />;
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center">
           <Link
             href="/dashboard"
@@ -141,13 +327,56 @@ export default function ContractScannerPage() {
         </div>
       </div>
 
-      {/* Show contract analysis results at the top if available */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Contract History - Top Left */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center text-gray-600">
+            <History className="h-5 w-5 mr-2 text-blue-600" />
+            Your Contract History
+          </h2>
+          
+          <ContractHistoryViewer
+            summaries={summaries}
+            isLoading={summariesLoading}
+            error={summariesError}
+            onSelectSummary={setScanResults}
+            hasMoreSummaries={hasMoreSummaries}
+            onLoadMore={loadMoreSummaries}
+          />
+        </div>
+        
+        {/* Upload New Contract - Top Right */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center">
+            <Upload className="h-5 w-5 mr-2 text-blue-600" />
+            Upload New Contract
+          </h2>
+          <ContractUploader onScanContract={handleFileScan} isScanning={isFileScanning} />
+          
+          {scanError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mt-4">
+              <p>{scanError}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Show contract analysis results if available */}
       {scanResults && (
         <div className="mb-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <Search className="h-5 w-5 mr-2 text-blue-600" />
-            Latest Contract Analysis
-          </h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold flex items-center">
+              <Search className="h-5 w-5 mr-2 text-blue-600" />
+              Contract Analysis Results
+            </h2>
+            <button 
+              onClick={() => setScanResults(null)} 
+              className="p-1.5 rounded-full hover:bg-gray-100"
+              aria-label="Close analysis"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
           
           <div className="border-b border-gray-200 pb-4 mb-4">
             <h3 className="text-lg font-medium">
@@ -160,138 +389,151 @@ export default function ContractScannerPage() {
           
           <DynamicContractScanResults 
             results={scanResults} 
-            isScanning={isScanning} 
+            isScanning={isFileScanning || isDocumentScanning} 
           />
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="col-span-1 bg-white rounded-lg shadow-md p-6">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <Upload className="h-5 w-5 mr-2 text-blue-600" />
-              Upload New Contract
-            </h2>
-            <ContractUploader onScanContract={handleScanContract} isScanning={isScanning} />
-          </div>
-          
-          <div className="pt-6 border-t border-gray-200">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <FileText className="h-5 w-5 mr-2 text-blue-600" />
-              Select From Property Documents
-            </h2>
-            <DynamicPropertyDocumentSelector 
-              onSelectPropertyId={setSelectedPropertyId}
-              onScanContract={handleScanContract}
-              isScanning={isScanning}
-            />
-          </div>
+      {/* Select From Property Documents - Bottom */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center text-gray-600">
+          <FileText className="h-5 w-5 mr-2 text-blue-600" />
+          Select From Property Contracts
+        </h2>
+        
+        {/* Property selector - updated to use dropdown */}
+        <div className="mb-4 w-full max-w-sm">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Select Property
+          </label>
+          {propertiesLoading ? (
+            <div className="flex items-center justify-center p-2">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <span className="text-sm text-gray-500">Loading properties...</span>
+            </div>
+          ) : propertiesError ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
+              <p className="text-sm">{propertiesError}</p>
+            </div>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 text-gray-600 focus:ring-blue-500 focus:border-blue-500">
+                <span className="truncate">
+                  {properties.find(p => p.id === selectedPropertyId)?.name || 'Select a property'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-500 flex-shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[300px] max-h-[400px] overflow-y-auto bg-white border border-gray-200 shadow-md" sideOffset={4}>
+                <DropdownMenuLabel className="font-semibold">Your Properties</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-200" />
+                {properties.length === 0 ? (
+                  <DropdownMenuItem disabled className="opacity-50 cursor-default">
+                    No properties available
+                  </DropdownMenuItem>
+                ) : (
+                  properties.map(property => (
+                    <DropdownMenuItem
+                      key={property.id}
+                      onClick={() => {
+                        setSelectedPropertyId(property.id);
+                        setSelectedDocumentPath('');
+                      }}
+                      className="flex justify-between hover:bg-blue-50 cursor-pointer"
+                    >
+                      {property.name}
+                      {selectedPropertyId === property.id && <Check className="h-4 w-4 text-blue-600" />}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         
-        <div className="col-span-1 md:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center">
-              <Search className="h-5 w-5 mr-2 text-blue-600" />
-              Contract Scan Details
-            </h2>
-            
-            {scanError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
-                <p>{scanError}</p>
-              </div>
-            )}
-            
-            {!scanResults && !isScanning ? (
-              <div className="py-8 text-center text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p>No contract analyzed yet. Upload a document to scan it.</p>
-              </div>
-            ) : isScanning ? (
-              <div className="py-8 text-center">
-                <div className="animate-pulse flex flex-col items-center">
-                  <div className="h-12 w-12 bg-blue-100 rounded-full mb-3"></div>
-                  <div className="h-4 w-48 bg-blue-100 rounded mb-2"></div>
-                  <div className="h-3 w-32 bg-blue-50 rounded"></div>
-                </div>
-                <p className="mt-4 text-gray-600">Analyzing your contract...</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      
-      {/* Contract summaries section */}
-      <div className="mt-10">
-        <div className="flex items-center mb-6">
-          <History className="h-5 w-5 mr-2 text-blue-600" />
-          <h2 className="text-lg font-semibold">Your Contract History</h2>
-        </div>
-        
-        {summariesLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <p className="text-gray-500">Loading your contract summaries...</p>
-          </div>
-        ) : summariesError ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-            <p>Error: {summariesError}</p>
-          </div>
-        ) : summaries.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center min-h-[200px]">
-            <FileText className="h-12 w-12 text-gray-300 mb-4" />
-            <p className="text-center text-gray-500">
-              You haven't scanned any contracts yet.
-            </p>
-          </div>
-        ) : (
+        {/* Document display with similar styling to PropertyDocumentViewer */}
+        {selectedPropertyId && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {summaries.slice(0, 6).map((summary) => (
-                <div key={summary.id} className="bg-white rounded-lg shadow-md p-4 h-full">
-                  <div className="mb-2">
-                    <h3 className="text-lg font-medium truncate">
-                      {summary.summary.title || summary.summary.name || 'Contract Analysis'}
+            {isLoadingDocuments ? (
+              <div className="mt-6 flex justify-center items-center py-10">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : documentError ? (
+              <div className="mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                <p>Error loading documents: {documentError}</p>
+              </div>
+            ) : documentCategories.length === 0 ? (
+              <div className="mt-6 bg-gray-50 border border-gray-200 rounded-md p-6 text-center">
+                <FileText className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No Contracts</h3>
+                <p className="mt-1 text-sm text-gray-500">No contract documents available for this property.</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-6">
+                {documentCategories.map((docType, index) => (
+                  <div key={index} className="mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
+                      <Folder className="h-5 w-5 mr-2 text-blue-600" />
+                      {docType.documentType.charAt(0).toUpperCase() + docType.documentType.slice(1).replace(/-/g, ' ')}
                     </h3>
-                    <p className="text-sm text-gray-500 flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {new Date(summary.created_at).toLocaleDateString()} 
-                      <Clock className="h-3 w-3 mx-1" />
-                      {new Date(summary.created_at).toLocaleTimeString()}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {summary.summary.keyPoints && (
-                      <div>
-                        <h4 className="font-medium text-sm">Key Points</h4>
-                        <ul className="text-sm list-disc pl-5 mt-1">
-                          {summary.summary.keyPoints.slice(0, 3).map((point: string, i: number) => (
-                            <li key={i} className="text-gray-600 truncate">{point}</li>
+                    
+                    {!docType.documents || docType.documents.length === 0 ? (
+                      <p className="text-gray-500 italic">No documents in this category</p>
+                    ) : (
+                      <div className="overflow-hidden bg-white border border-gray-200 rounded-md">
+                        <ul className="divide-y divide-gray-200">
+                          {docType.documents.map((document: PropertyDocument, docIndex: number) => (
+                            <li 
+                              key={docIndex}
+                              className={`p-4 hover:bg-gray-50 cursor-pointer ${selectedDocumentPath === document.path ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}
+                              onClick={() => setSelectedDocumentPath(document.path)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center min-w-0 gap-x-4">
+                                  {getFileIcon(document.filename)}
+                                  <div className="min-w-0 flex-auto">
+                                    <p className="text-sm font-semibold leading-6 text-gray-900 truncate">
+                                      {document.filename}
+                                    </p>
+                                    <p className="mt-1 flex items-center text-xs leading-5 text-gray-500">
+                                      {document.metadata && (
+                                        <span>{formatFileSize(document.metadata.size)}</span>
+                                      )}
+                                      {document.created_at && (
+                                        <span className="ml-2 border-l border-gray-200 pl-2">
+                                          Uploaded on {new Date(document.created_at).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </li>
                           ))}
-                          {summary.summary.keyPoints.length > 3 && (
-                            <li className="text-blue-600">...</li>
-                          )}
                         </ul>
                       </div>
                     )}
-                    
-                    <button
-                      onClick={() => setScanResults(summary.summary)}
-                      className="block w-full mt-4 px-4 py-2 text-center text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                      View Full Analysis
-                    </button>
                   </div>
+                ))}
+                
+                <div className="flex justify-center mt-6">
+                  <button
+                    onClick={() => selectedDocumentPath && handleDocumentScan(selectedDocumentPath)}
+                    disabled={!selectedDocumentPath || isDocumentScanning}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                  >
+                    {isDocumentScanning ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-5 h-5 mr-2" />
+                        Scan Selected Document
+                      </>
+                    )}
+                  </button>
                 </div>
-              ))}
-            </div>
-            
-            {summaries.length > 6 && (
-              <div className="flex justify-center mt-6">
-                <Link 
-                  href="/dashboard/contract-history"
-                  className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  View All Contract Analyses
-                </Link>
               </div>
             )}
           </>

@@ -128,13 +128,12 @@ export default function TimelinePage() {
         )
       );
       
-      // Make the API call
+      // Make the API call in the background
       await updateTimelineEvent(eventToToggle.id, {
         is_completed: !eventToToggle.is_completed
       });
       
-      // Refresh the events list to ensure consistency with server
-      await fetchEvents();
+      // No refresh needed - the UI is already updated
     } catch (err: any) {
       setError(err.message || 'Failed to update event');
       console.error('Error updating event completion status:', err);
