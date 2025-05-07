@@ -6,22 +6,22 @@ export default function ProblemSection() {
     {
       id: 1,
       title: "Deposit disputes",
-      description: "Difficulty recovering your full deposit when moving out despite leaving the property in good condition."
+      description: "RentHive helps you document property condition with timestamped photos to recover your full deposit."
     },
     {
       id: 2,
       title: "Maintenance delays",
-      description: "Slow responses to repair requests and uncertainty about landlord responsibilities."
+      description: "Track and manage repair requests through RentHive's simple system with automatic follow-ups."
     },
     {
       id: 3,
       title: "Documentation challenges",
-      description: "Lost receipts, missing evidence, and difficulty keeping track of important rental documents."
+      description: "RentHive securely stores all your rental documents in one place for easy access whenever needed."
     },
     {
       id: 4,
-      title: "Legal complexity",
-      description: "Understanding your rights under different regional laws in England and Scotland."
+      title: "Payment tracking",
+      description: "Keep track of all your rental payments in RentHive with automatic reminders and receipt storage."
     }
   ]
 
@@ -30,9 +30,9 @@ export default function ProblemSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="COMMON CHALLENGES"
-            title="Renting Simplified"
-            description="We understand the hurdles UK renters face day-to-day. Our app helps you navigate these challenges with confidence."
+            subtitle="HOW RENTHIVE HELPS"
+            title="Rental Challenges Solved"
+            description="RentHive understands the hurdles renters face every day. Our app helps you navigate these challenges with confidence."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
@@ -42,10 +42,10 @@ export default function ProblemSection() {
           {problems.map((problem) => (
             <div key={problem.id} className="flex flex-col items-start space-y-3 rounded-lg border border-blue-100 bg-white p-6 shadow-sm">
               <div className="flex items-center space-x-3">
-                <ShieldCheck className="h-6 w-6 text-blue-500" />
+                <ShieldCheck className="h-6 w-6 text-blue-600" />
                 <h3 className="text-lg font-semibold text-blue-700">{problem.title}</h3>
               </div>
-              <p className="text-gray-500">{problem.description}</p>
+              <p className="text-gray-700">{problem.description}</p>
             </div>
           ))}
         </div>

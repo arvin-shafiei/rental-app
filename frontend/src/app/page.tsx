@@ -1,6 +1,7 @@
 import Header from "@/components/header"
 import HeroSection from "@/components/homepage/sections/hero-section"
 import TrustedBySection from "@/components/homepage/sections/trusted-by-section"
+import ContractAnalysisSection from "@/components/homepage/sections/contract-analysis-section"
 import ProblemSection from "@/components/homepage/sections/problem-section"
 import SolutionSection from "@/components/homepage/sections/solution-section"
 import HowItWorksSection from "@/components/homepage/sections/how-it-works-section"
@@ -15,6 +16,7 @@ export default function Home() {
       <Header />
       <main className="flex-1">
         <HeroSection />
+        <ContractAnalysisSection />
         <TrustedBySection />
         <ProblemSection />
         <SolutionSection />

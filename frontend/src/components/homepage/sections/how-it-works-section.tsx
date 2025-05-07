@@ -4,23 +4,23 @@ export default function HowItWorksSection() {
   const steps = [
     {
       number: "01",
-      title: "Document Your Move-In",
-      description: "Take photos and notes of your property's condition when you move in."
+      title: "Sign Up for RentHive",
+      description: "Create your account and enjoy a 30-day free trial with no credit card required."
     },
     {
       number: "02",
-      title: "Store Important Documents",
-      description: "Upload your lease, correspondence, and receipts to keep everything in one place."
+      title: "Document Your Property",
+      description: "Use RentHive to take photos and store details about your rental property condition."
     },
     {
       number: "03",
-      title: "Manage Maintenance Issues",
-      description: "Create and send professional repair requests with photo evidence."
+      title: "Track Maintenance Issues",
+      description: "Create, send, and follow up on maintenance requests through the RentHive platform."
     },
     {
       number: "04",
-      title: "Protect Your Deposit",
-      description: "Monitor protection schemes and prepare evidence for a smooth move-out."
+      title: "Manage Your Payments",
+      description: "Record and track all your rental payments with RentHive's payment management system."
     }
   ]
 
@@ -29,9 +29,9 @@ export default function HowItWorksSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="YOUR RENTAL JOURNEY"
-            title="How to use our app"
-            description="Our app supports you through your entire rental experience with these simple steps."
+            subtitle="GETTING STARTED"
+            title="How RentHive Works"
+            description="RentHive supports your entire rental journey with these simple steps."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
@@ -47,7 +47,7 @@ export default function HowItWorksSection() {
                 {step.number}
               </div>
               <h3 className="text-xl font-medium text-blue-700">{step.title}</h3>
-              <p className="text-gray-500">{step.description}</p>
+              <p className="text-gray-700">{step.description}</p>
             </div>
           ))}
         </div>

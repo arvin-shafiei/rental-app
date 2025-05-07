@@ -7,9 +7,9 @@ export default function SolutionSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="HOW WE HELP"
-            title="Your Rental Assistant"
-            description="Our app provides practical tools to help you navigate your rental journey with confidence and peace of mind."
+            subtitle="RENTHIVE SOLUTIONS"
+            title="Your Smart Rental Assistant"
+            description="RentHive provides practical tools to help you manage your rental property with confidence and ease."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />
@@ -36,9 +36,9 @@ export default function SolutionSection() {
                   </svg>
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-medium text-blue-700">Deposit Protection Tracking</h3>
-                  <p className="text-gray-500">
-                    Keep track of your deposit protection and get reminders for key deadlines to ensure your money is safe.
+                  <h3 className="text-xl font-medium text-blue-700">Smart Property Documentation</h3>
+                  <p className="text-gray-700">
+                    RentHive helps you document property conditions with timestamped photos and organized storage system.
                   </p>
                 </div>
               </li>
@@ -60,9 +60,9 @@ export default function SolutionSection() {
                   </svg>
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-medium text-blue-700">Repair Request Assistant</h3>
-                  <p className="text-gray-500">
-                    Create professional repair requests with photos and relevant legal references to get faster responses.
+                  <h3 className="text-xl font-medium text-blue-700">Maintenance Request Tracker</h3>
+                  <p className="text-gray-700">
+                    RentHive's maintenance system allows you to create, track, and follow up on repair requests automatically.
                   </p>
                 </div>
               </li>
@@ -84,9 +84,9 @@ export default function SolutionSection() {
                   </svg>
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-xl font-medium text-blue-700">Document Storage</h3>
-                  <p className="text-gray-500">
-                    Securely store all your rental documents, photos, and correspondence in one place for easy access.
+                  <h3 className="text-xl font-medium text-blue-700">Payment Management</h3>
+                  <p className="text-gray-700">
+                    RentHive keeps track of all your rental payments with automatic reminders and digital receipt storage.
                   </p>
                 </div>
               </li>
@@ -94,7 +94,7 @@ export default function SolutionSection() {
           </div>
           <div className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full lg:order-last">
             <Image
-              alt="Rental Assistant Dashboard"
+              alt="RentHive Dashboard"
               src="/placeholder.svg?height=400&width=600"
               width="600"
               height="400"
