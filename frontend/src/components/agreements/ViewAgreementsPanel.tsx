@@ -7,6 +7,7 @@ import ViewChecklistItem from './ViewChecklistItem';
 import { Property, PropertyUsers, Agreement } from '@/types/agreement';
 import { getPropertyAgreements, getPropertyUsers, updateAgreementTask, deleteAgreement } from '@/lib/api';
 import { Trash2, Check, ChevronsUpDown } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,39 +92,42 @@ const ViewAgreementsPanel = ({
     }
   }, [selectedAgreement, agreements]);
 
-  // Load property users and determine current user role when viewing an agreement
+  // Load property users and get the current user ID from auth
   useEffect(() => {
     const fetchViewPropertyUsers = async () => {
       if (!viewSelectedProperty) return;
       
       try {
+        // Get the current user from Supabase auth
+        const { data: authData } = await supabase.auth.getSession();
+        const loggedInUserId = authData.session?.user?.id;
+        
+        console.log('Current logged in user ID:', loggedInUserId);
+        setCurrentUserId(loggedInUserId || null);
+        
+        // Get all property users
         const data = await getPropertyUsers(viewSelectedProperty);
         
         if (Array.isArray(data)) {
           setViewPropertyUsers(data);
           
-          if (selectedAgreementDetails) {
-            // Find current user's role
-            const currentUser = data.find(u => 
-              // We don't have the actual user ID here, so we're assuming the
-              // current user is the agreement creator for owners. This is a simplification.
-              // In a real app, you'd check against the authenticated user's ID.
-              selectedAgreementDetails.created_by === u.user_id
-            );
-            
-            if (currentUser) {
-              setUserRole(currentUser.user_role || null);
-              setCurrentUserId(currentUser.user_id || null);
-            } else {
-              // Fallback - for demo purposes, use the first user with tenant role
-              // In a real app, this would come from authentication
-              const tenant = data.find(u => u.user_role === 'tenant');
-              if (tenant) {
-                setUserRole('tenant');
-                setCurrentUserId(tenant.user_id);
-              }
-            }
+          // Find the current user's role in this property
+          const currentUserData = data.find(u => u.user_id === loggedInUserId);
+          if (currentUserData) {
+            setUserRole(currentUserData.user_role);
+            console.log('Current user role in property:', currentUserData.user_role);
+          } else {
+            console.warn('Current user not found in property users');
           }
+          
+          // Print all user IDs available for testing
+          console.log('All property users:', data.map(u => ({
+            userId: u.user_id,
+            role: u.user_role,
+            email: u.profile?.email || 'No email'
+          })));
+        } else {
+          console.warn('No property users found');
         }
       } catch (error) {
         console.error('Error fetching property users:', error);
@@ -136,7 +140,7 @@ const ViewAgreementsPanel = ({
     };
     
     fetchViewPropertyUsers();
-  }, [viewSelectedProperty, selectedAgreementDetails]);
+  }, [viewSelectedProperty]);
   
   // Update property if prop changes (e.g. after creating an agreement)
   useEffect(() => {
@@ -148,7 +152,7 @@ const ViewAgreementsPanel = ({
 
   // Function to handle assigning a user to a task
   const handleAssignUser = async (itemIndex: number, userId: string | null, notificationDays?: number | null) => {
-    if (!selectedAgreementDetails) return;
+    if (!selectedAgreementDetails || !currentUserId) return;
     
     try {
       setAssigningItem(itemIndex.toString());
@@ -159,10 +163,6 @@ const ViewAgreementsPanel = ({
         notificationDays,
         notificationDaysType: typeof notificationDays
       });
-
-      // Get current user ID (simplified for example)
-      const currentUser = viewPropertyUsers.find(u => u.user_role === userRole);
-      const currentUserId = currentUser?.user_id;
       
       // Create a copy of the agreement's check items for local state update
       const updatedItems = [...selectedAgreementDetails.check_items];
@@ -170,24 +170,27 @@ const ViewAgreementsPanel = ({
       
       console.log('Current item before update:', currentItem);
       
+      // Check if current user is the creator of the agreement
+      const isCreator = selectedAgreementDetails.created_by === currentUserId;
+      
       // Check permissions (client-side validation)
-      if (userRole !== 'owner') {
-        // For tenants, ensure they can only unassign themselves
-        if (currentItem.assigned_to && currentItem.assigned_to !== currentUserId && userId === null) {
+      if (!isCreator) {
+        // Non-creators can only assign/unassign themselves
+        if (userId !== null && userId !== currentUserId) {
           toast({
             title: 'Permission Error',
-            description: 'You can only unassign tasks assigned to you',
+            description: 'You can only assign tasks to yourself',
             variant: 'destructive',
           });
           setAssigningItem(null);
           return;
         }
         
-        // For tenants assigning, they can only assign to themselves
-        if (userId && userId !== currentUserId) {
+        // For unassigning, check if they're unassigning someone else
+        if (userId === null && currentItem.assigned_to && currentItem.assigned_to !== currentUserId) {
           toast({
             title: 'Permission Error',
-            description: 'You can only assign tasks to yourself',
+            description: 'You can only unassign tasks assigned to you',
             variant: 'destructive',
           });
           setAssigningItem(null);
@@ -258,22 +261,22 @@ const ViewAgreementsPanel = ({
   
   // Function to handle updating a check item (checked/unchecked)
   const handleUpdateCheckItem = async (itemIndex: number, checked: boolean) => {
-    if (!selectedAgreementDetails) return;
+    if (!selectedAgreementDetails || !currentUserId) return;
     
     try {
       setUpdatingItem(itemIndex.toString());
-      
-      // Get current user info
-      const currentUser = viewPropertyUsers.find(u => u.user_role === userRole);
-      const currentUserId = currentUser?.user_id;
       
       // Create a copy of the agreement's check items
       const updatedItems = [...selectedAgreementDetails.check_items];
       const currentItem = updatedItems[itemIndex];
       
-      // Check if the item is assigned to the current user or not assigned to anyone
-      // Owners can update any item
-      if (userRole !== 'owner' && 
+      // Check if current user is the creator of the agreement
+      const isCreator = selectedAgreementDetails.created_by === currentUserId;
+      
+      // Check permissions
+      // Creators can update any item
+      // Others can only update items assigned to them or unassigned items
+      if (!isCreator && 
           currentItem.assigned_to !== null && 
           currentItem.assigned_to !== currentUserId) {
         toast({
@@ -484,11 +487,11 @@ const ViewAgreementsPanel = ({
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">{selectedAgreementDetails.title}</h3>
               
-              {/* Delete button - only show for property owners */}
-              {userRole === 'owner' && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
+              {/* Only show delete button if user is the creator */}
+              {selectedAgreementDetails.created_by === currentUserId && (
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={handleDeleteAgreement}
                   disabled={deleting}
                   className="flex gap-2 items-center"
@@ -528,7 +531,7 @@ const ViewAgreementsPanel = ({
                         onAssignUser={(userId, notificationDays) => handleAssignUser(index, userId, notificationDays)}
                         isUpdating={updatingItem === index.toString()}
                         isAssigning={assigningItem === index.toString()}
-                        canEdit={userRole === 'owner'}
+                        canEdit={selectedAgreementDetails.created_by === currentUserId}
                         currentUserId={currentUserId}
                         getUserEmail={getUserEmailById}
                       />
