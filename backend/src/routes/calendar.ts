@@ -136,6 +136,150 @@ router.post('/ics', authenticateUser, async (req: Request, res: Response): Promi
   }
 });
 
+// Add multiple events to the calendar
+router.post('/ics/multiple', authenticateUser, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    const userId = user.id;
+    
+    // Get events array from request body
+    const { events } = req.body;
+    
+    // Validate events array
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing or invalid events array'
+      });
+      return;
+    }
+
+    // ICS file path in storage
+    const filePath = `${userId}/calendar.ics`;
+    
+    // Check if file already exists
+    const { data: existingFile, error: fetchError } = await supabaseAdmin.storage
+      .from('room-media')
+      .download(filePath);
+    
+    let calendar: ICalCalendar;
+    
+    if (existingFile && !fetchError) {
+      // Parse existing calendar
+      try {
+        const existingIcsContent = await existingFile.text();
+        calendar = ical({ name: `Calendar for ${user.email}` });
+        
+        // Parse existing ICS content using node-ical
+        const existingEvents = await nodeIcal.async.parseICS(existingIcsContent);
+        
+        // Add all existing events to the new calendar
+        Object.values(existingEvents).forEach(event => {
+          // Only process VEVENT objects (actual calendar events)
+          if (event.type === 'VEVENT') {
+            // Create event data from parsed event
+            const eventData: ICalEventData = {
+              start: event.start,
+              end: event.end || moment(event.start).add(1, 'hour').toDate(), // Default 1 hour if no end time
+              summary: event.summary,
+              description: event.description || '',
+              location: event.location || '',
+              id: event.uid || `existing-event-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              created: event.created || new Date()
+            };
+            
+            // Add to our new calendar
+            calendar.createEvent(eventData);
+          }
+        });
+        
+        console.log(`Added ${Object.keys(existingEvents).length} existing events to calendar`);
+      } catch (error) {
+        console.error('Error parsing existing ICS file:', error);
+        // If parsing fails, create a new calendar
+        calendar = ical({ name: `Calendar for ${user.email}` });
+      }
+    } else {
+      // Create new calendar
+      calendar = ical({ name: `Calendar for ${user.email}` });
+    }
+    
+    // Add each event to the calendar
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const event of events) {
+      try {
+        // Validate required fields
+        if (!event.title || !event.startDateTime || !event.endDateTime) {
+          console.warn('Skipping event with missing required fields:', event);
+          errorCount++;
+          continue;
+        }
+        
+        // Add event to calendar
+        calendar.createEvent({
+          start: moment(event.startDateTime).toDate(),
+          end: moment(event.endDateTime).toDate(),
+          summary: event.title,
+          description: event.description || '',
+          location: event.location || '',
+          id: `event-${Date.now()}-${Math.floor(Math.random() * 1000)}-${successCount}`,
+          created: moment().toDate()
+        });
+        
+        successCount++;
+      } catch (eventError) {
+        console.error('Error adding individual event to calendar:', eventError);
+        errorCount++;
+      }
+    }
+    
+    // Generate ICS content
+    const icsContent = calendar.toString();
+    
+    // Upload to Supabase storage
+    const { data, error } = await supabaseAdmin.storage
+      .from('room-media')
+      .upload(filePath, icsContent, {
+        contentType: 'text/calendar',
+        upsert: true // Overwrite if exists
+      });
+    
+    if (error) {
+      throw new Error(`Failed to upload ICS file: ${error.message}`);
+    }
+    
+    // Create a signed URL that expires in 7 days (604800 seconds)
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+      .from('room-media')
+      .createSignedUrl(filePath, 604800, {
+        download: true
+      });
+    
+    if (signedUrlError || !signedUrlData) {
+      throw new Error(`Failed to create signed URL: ${signedUrlError?.message || 'Unknown error'}`);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Added ${successCount} events to calendar${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+      data: {
+        calendarUrl: signedUrlData.signedUrl,
+        addedCount: successCount,
+        errorCount: errorCount
+      }
+    });
+  } catch (error: any) {
+    console.error('Error managing ICS file for multiple events:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding events to calendar',
+      error: error.message
+    });
+  }
+});
+
 // Get user's calendar URL
 router.get('/ics', authenticateUser, async (req: Request, res: Response): Promise<void> => {
   try {

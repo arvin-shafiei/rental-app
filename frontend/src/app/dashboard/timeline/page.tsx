@@ -502,6 +502,22 @@ export default function TimelinePage() {
           <span className="text-sm text-gray-500">
             {filteredEvents.length} events found
           </span>
+          
+          {filteredEvents.length > 0 && (
+            <div className="mr-4">
+              <CalendarExport 
+                eventsData={filteredEvents.map(event => ({
+                  title: event.title || 'Untitled Event',
+                  description: event.description || '',
+                  startDateTime: event.start_date,
+                  endDateTime: event.end_date || new Date(new Date(event.start_date).getTime() + 60 * 60 * 1000).toISOString(),
+                  location: event.property_name || ''
+                }))}
+                buttonText={`Add to Calendar (${filteredEvents.length})`}
+              />
+            </div>
+          )}
+          
           {error && (
             <div className="text-sm text-red-600 flex items-center">
               <AlertCircle className="h-4 w-4 mr-1" />
