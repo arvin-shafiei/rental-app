@@ -277,6 +277,20 @@ export class AgreementService {
         throw new Error('You do not have permission to delete this agreement');
       }
 
+      // First, delete any timeline events associated with this agreement
+      // These are created when tasks from the agreement are assigned to users
+      console.log(`[AgreementService] Deleting timeline events for agreement: ${agreementId}`);
+      const { error: timelineDeleteError } = await supabaseAdmin
+        .from('timeline_events')
+        .delete()
+        .eq('event_type', 'agreement_task')
+        .contains('metadata', { agreement_id: agreementId });
+
+      if (timelineDeleteError) {
+        console.error(`[AgreementService] Error deleting timeline events: ${timelineDeleteError.message}`);
+        // Continue with agreement deletion even if timeline event deletion fails
+      }
+
       // Delete the agreement
       const { error } = await supabaseAdmin
         .from('agreements')
