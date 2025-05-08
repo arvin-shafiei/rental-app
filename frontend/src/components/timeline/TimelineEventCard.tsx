@@ -7,7 +7,8 @@ import {
   Circle,
   Home,
   CalendarIcon,
-  AlertCircle
+  AlertCircle,
+  File
 } from 'lucide-react';
 import { TimelineEvent, TimelineEventType } from '@/lib/timelineApi';
 
@@ -43,8 +44,10 @@ export default function TimelineEventCard({
         return 'Inspection';
       case TimelineEventType.MAINTENANCE:
         return 'Maintenance';
-      case TimelineEventType.CUSTOM:
-        return 'Custom Event';
+      case TimelineEventType.AGREEMENT_TASK:
+        return 'Agreement Task';
+      case TimelineEventType.OTHER:
+        return 'Other';
       default:
         return type;
     }
@@ -61,6 +64,8 @@ export default function TimelineEventCard({
         return <CheckCircle2 className="h-5 w-5 text-orange-600" />;
       case TimelineEventType.MAINTENANCE:
         return <AlertCircle className="h-5 w-5 text-red-600" />;
+      case TimelineEventType.AGREEMENT_TASK:
+        return <File className="h-5 w-5 text-purple-600" />;
       default:
         return <Calendar className="h-5 w-5 text-gray-400" />;
     }
