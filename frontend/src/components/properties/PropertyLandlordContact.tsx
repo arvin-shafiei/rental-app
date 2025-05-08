@@ -287,7 +287,7 @@ Best regards,
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold mb-4 flex items-center text-gray-900">
+        <h2 className="text-xl font-bold mb-4 flex items-center text-gray-600">
           <Mail className="mr-2 h-5 w-5 text-blue-500" />
           Contact Landlord
         </h2>
@@ -354,7 +354,7 @@ Best regards,
             </div>
           </div>
           
-          <h3 className="font-medium text-lg mb-2">
+          <h3 className="font-medium text-lg mb-2 text-gray-600">
             {requestType === 'deposit' ? 'Request Deposit' : 'Request Repairs'}
           </h3>
           <p className="text-gray-600 text-sm mb-4">
@@ -486,7 +486,7 @@ Best regards,
       </div>
       
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="font-medium text-lg mb-3 flex items-center">
+        <h3 className="font-medium text-lg mb-3 flex items-center text-gray-700">
           <span>Request History</span>
           <span className="ml-2 px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
             {requestType === 'deposit' ? 'Deposit Requests' : 'Repair Requests'}
@@ -533,7 +533,7 @@ Best regards,
             {requests.map(request => (
               <div key={request.id} className="border border-gray-200 rounded-md p-4">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="font-medium">{format(new Date(request.created_at), 'MMMM d, yyyy')}</div>
+                  <div className="font-medium text-gray-600">{format(new Date(request.created_at), 'MMMM d, yyyy')}</div>
                   <div className="flex space-x-2">
                     {getStatusBadge(request.status)}
                   </div>
