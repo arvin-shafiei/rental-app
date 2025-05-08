@@ -6,8 +6,8 @@ import {
 import { format, parseISO, isValid, addDays } from 'date-fns';
 import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, ChevronsUpDown, Check } from 'lucide-react';
 import ChecklistItem from './ChecklistItem';
-import { Property, PropertyUsers, CheckItem, AgreementData, ApiCheckItem } from '@/types/agreement';
-import { getPropertyUsers, createAgreement, getPropertyAgreements } from '@/lib/api';
+import { Property, PropertyUsers, CheckItem, ApiCheckItem } from '@/types/agreement';
+import { getPropertyUsers, createAgreement, getPropertyAgreements, AgreementData as ApiAgreementData } from '@/lib/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -254,11 +254,9 @@ const CreateAgreementForm = ({
       try {
         setLoading(true);
         const data = await getPropertyUsers(selectedProperty);
-        // Filter to only include tenants
-        const tenants = Array.isArray(data) 
-          ? data.filter((user: PropertyUsers) => user.user_role === 'tenant')
-          : [];
-        setPropertyUsers(tenants);
+        // Include all property users, not just tenants
+        const users = Array.isArray(data) ? data : [];
+        setPropertyUsers(users);
       } catch (error) {
         console.error('Error fetching property users:', error);
         toast({
@@ -353,15 +351,15 @@ const CreateAgreementForm = ({
         text: item.text,
         checked: item.checked,
         assigned_to: item.assignedTo || null,
-        notification_days_before: item.notificationDaysBefore  // Ensure this field name matches what the backend expects
+        notification_days_before: item.notificationDaysBefore
       }));
 
-      // Create the agreement data
-      const agreementData: AgreementData = {
+      // Create the agreement data with the type expected by the API
+      const agreementData: ApiAgreementData = {
         title: agreementTitle,
         propertyId: selectedProperty,
         checkItems: apiCheckItems,
-        dueDate: agreementDueDate
+        dueDate: agreementDueDate || undefined
       };
 
       // Log what's being sent to the API for debugging
@@ -400,7 +398,7 @@ const CreateAgreementForm = ({
       <CardHeader>
         <CardTitle>Create New Agreement</CardTitle>
         <CardDescription>
-          Create a new agreement to send to all tenants of a property
+          Create a new agreement to share with all users of this property
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -441,7 +439,7 @@ const CreateAgreementForm = ({
 
         {selectedProperty && (
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Tenants who will receive this agreement:</label>
+            <label className="block text-sm font-medium text-gray-700">Users who will receive this agreement:</label>
             <div className="border rounded-md p-3 bg-gray-50">
               {loading ? (
                 <div className="flex space-x-2">
@@ -452,13 +450,14 @@ const CreateAgreementForm = ({
                 <ul className="text-sm text-gray-700 space-y-1">
                   {propertyUsers.map((user) => (
                     <li key={user.id} className="flex items-center">
-                      <div className="h-2 w-2 bg-blue-500 rounded-full mr-2"></div>
+                      <div className={`h-2 w-2 rounded-full mr-2 ${user.user_role === 'owner' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
                       {user.profile?.display_name || user.profile?.email || user.user_id}
+                      {user.user_role === 'owner' ? ' (Owner)' : ' (Tenant)'}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500">No tenants found for this property</p>
+                <p className="text-sm text-gray-500">No users found for this property</p>
               )}
             </div>
           </div>

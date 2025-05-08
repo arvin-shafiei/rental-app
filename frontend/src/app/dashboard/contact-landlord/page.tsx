@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Mail, Check, ChevronsUpDown, AlertCircle, MapPin, AtSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Mail, Check, ChevronsUpDown, AlertCircle, MapPin, AtSign, Edit2, Save } from 'lucide-react';
 import Link from 'next/link';
-import { getProperties } from '@/lib/api';
+import { getProperties, updateProperty } from '@/lib/api';
 import { Property } from '@/components/properties/PropertyDetails';
 import PropertyLandlordContact from '@/components/properties/PropertyLandlordContact';
 import {
@@ -14,12 +14,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/FormElements';
 
 export default function ContactLandlordPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [landlordEmail, setLandlordEmail] = useState<string>('');
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -32,6 +39,7 @@ export default function ContactLandlordPage() {
           // Set the first property as selected by default if available
           if (result.data.length > 0) {
             setSelectedProperty(result.data[0]);
+            setLandlordEmail(result.data[0].landlord_email || '');
           }
         }
         setError(null);
@@ -48,6 +56,10 @@ export default function ContactLandlordPage() {
 
   const handlePropertySelect = (property: Property) => {
     setSelectedProperty(property);
+    setLandlordEmail(property.landlord_email || '');
+    setIsEditingEmail(false);
+    setUpdateSuccess(false);
+    setUpdateError(null);
   };
 
   // Get full address as a formatted string
@@ -62,6 +74,48 @@ export default function ContactLandlordPage() {
     if (property.postcode) parts.push(property.postcode);
     
     return parts.join(', ');
+  };
+
+  const handleEditEmail = () => {
+    setIsEditingEmail(true);
+    setUpdateSuccess(false);
+    setUpdateError(null);
+  };
+
+  const handleSaveEmail = async () => {
+    if (!selectedProperty) return;
+    
+    setUpdateLoading(true);
+    setUpdateError(null);
+    setUpdateSuccess(false);
+    
+    try {
+      // Update property with new landlord email
+      const updatedData = { landlord_email: landlordEmail };
+      const result = await updateProperty(selectedProperty.id, updatedData);
+      
+      if (result && result.success) {
+        // Update the local property data
+        const updatedProperty = { ...selectedProperty, landlord_email: landlordEmail };
+        setSelectedProperty(updatedProperty);
+        
+        // Update the property in the properties list
+        const updatedProperties = properties.map(prop => 
+          prop.id === selectedProperty.id ? updatedProperty : prop
+        );
+        setProperties(updatedProperties);
+        
+        setUpdateSuccess(true);
+        setIsEditingEmail(false);
+      } else {
+        setUpdateError('Failed to update landlord email');
+      }
+    } catch (err: any) {
+      setUpdateError(err.message || 'Failed to update landlord email');
+      console.error('Error updating landlord email:', err);
+    } finally {
+      setUpdateLoading(false);
+    }
   };
 
   return (
@@ -125,15 +179,71 @@ export default function ContactLandlordPage() {
                   </div>
                 </div>
                 
-                {selectedProperty.landlord_email && (
-                  <div className="flex items-start">
-                    <AtSign className="h-4 w-4 text-gray-500 mt-0.5 mr-2 flex-shrink-0" />
-                    <div>
-                      <div className="font-medium text-gray-700 mb-0.5">Landlord Email</div>
-                      <div className="text-gray-600">{selectedProperty.landlord_email}</div>
+                <div className="flex items-start">
+                  <AtSign className="h-4 w-4 text-gray-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <div>
+                    <div className="font-medium text-gray-700 mb-0.5">Landlord Email</div>
+                    <div className="flex items-center gap-2">
+                      {isEditingEmail ? (
+                        <div className="flex items-center gap-2" style={{ minWidth: '450px' }}>
+                          <Input
+                            type="email"
+                            value={landlordEmail}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLandlordEmail(e.target.value)}
+                            placeholder="Enter landlord email"
+                            className="!w-64 h-8 text-sm"
+                          />
+                          <Button 
+                            onClick={handleSaveEmail} 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-8 gap-1 text-blue-600 hover:text-blue-800 border-blue-600 hover:border-blue-800 hover:bg-blue-50"
+                            disabled={updateLoading}
+                          >
+                            {updateLoading ? (
+                              <>
+                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                                <span>Saving</span>
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-3 w-3" />
+                                <span>Save</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-gray-600">
+                            {selectedProperty.landlord_email || 'Not set'}
+                          </span>
+                          <Button 
+                            onClick={handleEditEmail} 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-6 px-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            <span className="ml-1">Edit</span>
+                          </Button>
+                        </>
+                      )}
                     </div>
+                    {updateSuccess && (
+                      <div className="text-green-600 flex items-center gap-1 mt-1 text-xs">
+                        <Check className="h-3 w-3" />
+                        <span>Landlord email updated successfully</span>
+                      </div>
+                    )}
+                    {updateError && (
+                      <div className="text-red-600 flex items-center gap-1 mt-1 text-xs">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>{updateError}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}

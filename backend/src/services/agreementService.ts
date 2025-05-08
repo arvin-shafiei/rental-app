@@ -114,7 +114,31 @@ export class AgreementService {
   }
 
   /**
-   * Verify if user has access to a property (is owner)
+   * Verify if user has access to a property (is either owner or tenant)
+   */
+  async verifyPropertyAccess(propertyId: string, userId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('property_users')
+        .select('id, user_role')
+        .eq('property_id', propertyId)
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) {
+        console.log(`[AgreementService] User ${userId} does not have access to property ${propertyId}`);
+        return false;
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error(`[AgreementService] Error verifying property access: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Verify if user is the owner of a property
    */
   async verifyPropertyOwnership(propertyId: string, userId: string): Promise<boolean> {
     try {
@@ -127,7 +151,7 @@ export class AgreementService {
         .single();
 
       if (error || !data) {
-        console.log(`[AgreementService] User ${userId} does not have owner access to property ${propertyId}`);
+        console.log(`[AgreementService] User ${userId} is not the owner of property ${propertyId}`);
         return false;
       }
 
@@ -145,8 +169,8 @@ export class AgreementService {
     console.log(`[AgreementService] Creating agreement for property: ${agreementData.propertyId}`);
     
     try {
-      // Verify the user has owner access to the property
-      const hasAccess = await this.verifyPropertyOwnership(agreementData.propertyId, userId);
+      // Verify the user has access to the property
+      const hasAccess = await this.verifyPropertyAccess(agreementData.propertyId, userId);
       if (!hasAccess) {
         throw new Error('You do not have permission to create agreements for this property');
       }
@@ -194,16 +218,10 @@ export class AgreementService {
         throw new Error('Agreement not found');
       }
 
-      // Check if user is the creator or has access to the property
+      // Check if user is the creator of the agreement
       const isCreator = existingAgreement.created_by === userId;
-      let isOwner = false;
       
       if (!isCreator) {
-        // Check if user is the property owner
-        isOwner = await this.verifyPropertyOwnership(existingAgreement.property_id, userId);
-      }
-
-      if (!isCreator && !isOwner) {
         throw new Error('You do not have permission to update this agreement');
       }
 
@@ -252,17 +270,25 @@ export class AgreementService {
         throw new Error('Agreement not found');
       }
 
-      // Check if user is the creator or has access to the property
+      // Check if user is the creator of the agreement
       const isCreator = existingAgreement.created_by === userId;
-      let isOwner = false;
       
       if (!isCreator) {
-        // Check if user is the property owner
-        isOwner = await this.verifyPropertyOwnership(existingAgreement.property_id, userId);
+        throw new Error('You do not have permission to delete this agreement');
       }
 
-      if (!isCreator && !isOwner) {
-        throw new Error('You do not have permission to delete this agreement');
+      // First, delete any timeline events associated with this agreement
+      // These are created when tasks from the agreement are assigned to users
+      console.log(`[AgreementService] Deleting timeline events for agreement: ${agreementId}`);
+      const { error: timelineDeleteError } = await supabaseAdmin
+        .from('timeline_events')
+        .delete()
+        .eq('event_type', 'agreement_task')
+        .contains('metadata', { agreement_id: agreementId });
+
+      if (timelineDeleteError) {
+        console.error(`[AgreementService] Error deleting timeline events: ${timelineDeleteError.message}`);
+        // Continue with agreement deletion even if timeline event deletion fails
       }
 
       // Delete the agreement

@@ -128,7 +128,7 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
-              className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
+              className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10 text-gray-600"
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
               <Search className="h-5 w-5 text-gray-400" />

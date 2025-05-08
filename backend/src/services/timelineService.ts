@@ -252,8 +252,21 @@ export class TimelineService {
     
     console.log(`Retrieved ${data?.length || 0} total timeline events for user ${userId}`);
     
+    // Filter agreement task events to only show ones assigned to the current user
+    // All other event types are shown to all users who have access to the property
+    const filteredEvents = data.filter(event => {
+      // If it's an agreement task event, only show it to the assigned user
+      if (event.event_type === 'agreement_task') {
+        return event.user_id === userId;
+      }
+      // Show all other event types to all users with property access
+      return true;
+    });
+    
+    console.log(`Filtered to ${filteredEvents.length} events after removing agreement tasks not assigned to user`);
+    
     // Add property_name to each event for easier display
-    const eventsWithPropertyNames = data.map(event => ({
+    const eventsWithPropertyNames = filteredEvents.map(event => ({
       ...event,
       property_name: event.properties?.name
     }));
@@ -293,6 +306,10 @@ export class TimelineService {
     }
 
     console.log(`Found ${data.length} upcoming events for user ${userId}`);
+    
+    // For upcoming events, we already filter by user_id in the query above,
+    // so there's no need to filter agreement_task events here.
+    // This ensures users only see their own upcoming tasks.
     
     // Filter events based on notification_days_before
     const notifiableEvents = data.filter(event => {

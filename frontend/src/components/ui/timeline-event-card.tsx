@@ -1,6 +1,6 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { Calendar, Home, CheckCircle2, Circle, CalendarIcon, Loader2 } from 'lucide-react';
+import { Calendar, Home, CheckCircle2, Circle, CalendarIcon, Loader2, File } from 'lucide-react';
 import Link from 'next/link';
 import { TimelineEvent, TimelineEventType } from '@/lib/timelineApi';
 
@@ -31,6 +31,8 @@ export function TimelineEventCard({
         return <CheckCircle2 className="h-5 w-5 text-orange-600" />;
       case TimelineEventType.MAINTENANCE:
         return <Calendar className="h-5 w-5 text-red-600" />;
+      case TimelineEventType.AGREEMENT_TASK:
+        return <File className="h-5 w-5 text-purple-600" />;
       default:
         return <Calendar className="h-5 w-5 text-gray-600" />;
     }
@@ -49,6 +51,8 @@ export function TimelineEventCard({
         return 'Inspection';
       case TimelineEventType.MAINTENANCE:
         return 'Maintenance';
+      case TimelineEventType.AGREEMENT_TASK:
+        return 'Agreement Task';
       case TimelineEventType.OTHER:
         return 'Other';
       default:
@@ -75,8 +79,8 @@ export function TimelineEventCard({
   };
 
   // Determine if we should show the completion toggle button
-  // Hide it for Agreement type events
-  const showCompletionToggle = event.event_type.toLowerCase() !== 'agreement';
+  // We want to show the toggle for all events including agreement tasks
+  const showCompletionToggle = true;
 
   return (
     <div 
@@ -144,4 +148,4 @@ export function TimelineEventCard({
       </div>
     </div>
   );
-} 
+}

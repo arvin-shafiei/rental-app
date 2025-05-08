@@ -104,7 +104,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
     <div className="mt-8 pt-4 border-t">
       <div className="flex items-center mb-4">
         <Upload className="w-5 h-5 mr-2 text-blue-600" />
-        <h3 className="text-lg font-semibold">Property Images</h3>
+        <h3 className="text-lg font-semibold text-gray-700">Property Images</h3>
       </div>
       
       <div className="bg-gray-50 rounded-lg p-4">
@@ -118,7 +118,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
             value={roomName}
             onChange={handleRoomNameChange}
             placeholder="e.g. Bedroom, Kitchen, etc."
-            className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-600"
             disabled={isUploading}
             required
           />

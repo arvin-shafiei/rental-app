@@ -90,12 +90,13 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
     const currentTask = agreement.check_items[taskIndex];
     console.log(`[AgreementController] Current task state:`, currentTask);
     
-    const userRole = req.propertyRole; // Set by the controller
+    // Check if user is the creator of the agreement
+    const isCreator = agreement.created_by === user.id;
 
     // Handle different actions with permission checks
     if (action === 'assign') {
-      // Owners can assign to anyone, tenants can only self-assign
-      if (userRole === 'owner' || (userRole === 'tenant' && userId === user.id)) {
+      // Agreement creators can assign to anyone, others can only self-assign
+      if (isCreator || userId === user.id) {
         currentTask.assigned_to = userId;
         
         // Set notification days if provided
@@ -108,8 +109,8 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
       }
     } 
     else if (action === 'unassign') {
-      // Owners can unassign anyone, tenants can only unassign themselves
-      if (userRole === 'owner' || (userRole === 'tenant' && currentTask.assigned_to === user.id)) {
+      // Agreement creators can unassign anyone, others can only unassign themselves
+      if (isCreator || currentTask.assigned_to === user.id) {
         currentTask.assigned_to = null;
         
         // Clear notification days when unassigning
@@ -121,8 +122,8 @@ router.put('/:id/tasks', async (req: AuthenticatedRequest, res) => {
     }
     else if (action === 'complete') {
       // For 'complete' action, toggle the checked status
-      // Permission check: Owners can check any task, but tenants can only check tasks assigned to them or unassigned tasks
-      if (userRole === 'owner' || 
+      // Permission check: Agreement creators can check any task, others can only check tasks assigned to them or unassigned tasks
+      if (isCreator || 
           currentTask.assigned_to === null || 
           currentTask.assigned_to === user.id) {
         

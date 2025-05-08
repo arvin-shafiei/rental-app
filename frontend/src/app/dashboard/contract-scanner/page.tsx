@@ -323,7 +323,7 @@ export default function ContractScannerPage() {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
-          <h1 className="text-2xl text-gray-500 font-bold">Contract Scanner</h1>
+          <h1 className="text-2xl text-gray-700 font-bold">Contract Scanner</h1>
         </div>
       </div>
 
@@ -347,7 +347,7 @@ export default function ContractScannerPage() {
         
         {/* Upload New Contract - Top Right */}
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center">
+          <h2 className="text-lg font-semibold mb-4 flex items-center text-gray-600">
             <Upload className="h-5 w-5 mr-2 text-blue-600" />
             Upload New Contract
           </h2>
