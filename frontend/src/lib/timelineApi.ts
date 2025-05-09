@@ -15,7 +15,8 @@ export enum TimelineEventRecurrence {
   DAILY = 'daily',
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
-  YEARLY = 'yearly'
+  YEARLY = 'yearly',
+  QUARTERLY = 'quarterly'
 }
 
 export interface TimelineEvent {
@@ -62,6 +63,13 @@ export interface TimelineSyncOptions {
   autoGenerateLeaseEvents?: boolean;
   upfrontRentPaid?: number;
   rentDueDay?: number;
+  includeInspections?: boolean;
+  includeMaintenanceReminders?: boolean;
+  includePropertyTaxes?: boolean;
+  includeInsurance?: boolean;
+  clearAllEvents?: boolean;
+  startDate?: string;
+  inspectionFrequency?: string;
 }
 
 /**

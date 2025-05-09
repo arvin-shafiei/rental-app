@@ -394,9 +394,62 @@ export class TimelineService {
     });
 
     try {
+      // Handle the clear all events flag first if present
+      if (options.clearAllEvents) {
+        console.log('Clearing all events for property:', propertyId);
+        
+        // Delete all timeline events for this property
+        const { error } = await supabaseAdmin
+          .from('timeline_events')
+          .delete()
+          .eq('property_id', propertyId);
+        
+        if (error) {
+          console.error('Error clearing timeline events:', error);
+          return false;
+        }
+        
+        console.log('Successfully cleared all events for property:', propertyId);
+        return true;
+      }
+      
       console.log('Syncing timeline for property:', propertyId);
       console.log('Property data:', JSON.stringify(property, null, 2));
       console.log('Sync options:', JSON.stringify(options, null, 2));
+      
+      // If a startDate is provided, temporarily override the property dates for event generation
+      if (options.startDate) {
+        console.log(`Using provided start date: ${options.startDate} instead of property default dates`);
+        
+        // Save original dates
+        const originalStartDate = property.lease_start_date;
+        
+        // Set the new date for event generation
+        property.lease_start_date = options.startDate;
+        
+        // If there's a lease_end_date and it's after the original start, adjust it relative to new start
+        if (property.lease_end_date) {
+          try {
+            const originalStart = new Date(originalStartDate);
+            const originalEnd = new Date(property.lease_end_date);
+            const newStart = new Date(options.startDate);
+            
+            if (!isNaN(originalStart.getTime()) && !isNaN(originalEnd.getTime()) && !isNaN(newStart.getTime())) {
+              // Calculate duration in milliseconds
+              const durationMs = originalEnd.getTime() - originalStart.getTime();
+              
+              // Add duration to new start date
+              const newEnd = new Date(newStart.getTime() + durationMs);
+              property.lease_end_date = newEnd.toISOString().split('T')[0];
+              
+              console.log(`Adjusted lease_end_date to: ${property.lease_end_date} based on new start date`);
+            }
+          } catch (e) {
+            console.error('Error adjusting lease end date:', e);
+            // If date adjustment fails, keep original end date
+          }
+        }
+      }
       
       // Add sync options to property object for use in generator methods
       const propertyWithOptions = {
@@ -426,6 +479,30 @@ export class TimelineService {
           has_lease_start: !!property.lease_start_date,
           has_rent_amount: !!property.rent_amount
         });
+      }
+
+      // Generate property inspections if requested
+      if (options.includeInspections) {
+        console.log('Generating property inspection events');
+        await this.generateInspectionEvents(propertyWithOptions, userId);
+      }
+
+      // Generate maintenance reminders if requested
+      if (options.includeMaintenanceReminders) {
+        console.log('Generating maintenance reminder events');
+        await this.generateMaintenanceReminders(propertyWithOptions, userId);
+      }
+
+      // Generate property tax events if requested
+      if (options.includePropertyTaxes) {
+        console.log('Generating property tax events');
+        await this.generatePropertyTaxEvents(propertyWithOptions, userId);
+      }
+
+      // Generate insurance renewal events if requested
+      if (options.includeInsurance) {
+        console.log('Generating insurance renewal events');
+        await this.generateInsuranceEvents(propertyWithOptions, userId);
       }
 
       return true;
@@ -707,6 +784,209 @@ export class TimelineService {
     }
     
     console.log(`Rent due date generation complete. Created ${eventsCreated} events.`);
+  }
+
+  // Add these methods to generate the various event types
+  private async generateInspectionEvents(propertyData: any, userId: string): Promise<boolean> {
+    try {
+      const today = new Date();
+      const nextYear = new Date();
+      nextYear.setFullYear(today.getFullYear() + 1);
+      
+      // Get frequency from options or default to yearly
+      const inspectionFrequency = propertyData.sync_options?.inspectionFrequency || 'annual';
+      
+      // Determine recurrence type based on frequency
+      let recurrenceType;
+      let title;
+      
+      switch (inspectionFrequency) {
+        case 'quarterly':
+          recurrenceType = TimelineEventRecurrence.QUARTERLY;
+          title = 'Quarterly Property Inspection';
+          break;
+        case 'biannual':
+          recurrenceType = TimelineEventRecurrence.NONE; // No direct biannual option
+          title = 'Semi-Annual Property Inspection';
+          break;
+        case 'annual':
+        default:
+          recurrenceType = TimelineEventRecurrence.YEARLY;
+          title = 'Annual Property Inspection';
+          break;
+      }
+      
+      // Create inspection event
+      const inspectionEvent = {
+        property_id: propertyData.id,
+        user_id: userId,
+        title: title,
+        description: `Schedule an inspection for ${propertyData.name || 'your property'}`,
+        event_type: TimelineEventType.INSPECTION,
+        start_date: nextYear.toISOString(),
+        is_all_day: true,
+        recurrence_type: recurrenceType,
+        notification_days_before: 14,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabaseAdmin
+        .from('timeline_events')
+        .insert(inspectionEvent);
+      
+      if (error) {
+        console.error('Error creating inspection event:', error);
+        return false;
+      }
+      
+      // For biannual frequency, we need to create two events per year
+      if (inspectionFrequency === 'biannual') {
+        const secondInspection = new Date();
+        secondInspection.setMonth(today.getMonth() + 6);
+        
+        const secondInspectionEvent = {
+          ...inspectionEvent,
+          start_date: secondInspection.toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { error: secondError } = await supabaseAdmin
+          .from('timeline_events')
+          .insert(secondInspectionEvent);
+        
+        if (secondError) {
+          console.error('Error creating second inspection event:', secondError);
+          // Continue anyway, at least we created one event
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error generating inspection events:', error);
+      return false;
+    }
+  }
+
+  private async generateMaintenanceReminders(propertyData: any, userId: string): Promise<boolean> {
+    try {
+      const today = new Date();
+      
+      // Create quarterly maintenance events
+      const maintenanceEvents = [];
+      
+      for (let i = 0; i < 4; i++) {
+        const eventDate = new Date();
+        eventDate.setMonth(today.getMonth() + 3 * (i + 1));
+        
+        maintenanceEvents.push({
+          property_id: propertyData.id,
+          user_id: userId,
+          title: 'Quarterly Maintenance Check',
+          description: `Schedule regular maintenance for ${propertyData.name || 'your property'}`,
+          event_type: TimelineEventType.MAINTENANCE,
+          start_date: eventDate.toISOString(),
+          is_all_day: true,
+          recurrence_type: TimelineEventRecurrence.QUARTERLY,
+          notification_days_before: 7,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+      
+      if (maintenanceEvents.length > 0) {
+        const { error } = await supabaseAdmin
+          .from('timeline_events')
+          .insert(maintenanceEvents);
+        
+        if (error) {
+          console.error('Error creating maintenance events:', error);
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error generating maintenance events:', error);
+      return false;
+    }
+  }
+
+  private async generatePropertyTaxEvents(propertyData: any, userId: string): Promise<boolean> {
+    try {
+      const today = new Date();
+      const taxDueDate = new Date(today.getFullYear(), 3, 15); // April 15th of current year
+      
+      // If tax date has passed for this year, set it for next year
+      if (today > taxDueDate) {
+        taxDueDate.setFullYear(today.getFullYear() + 1);
+      }
+      
+      const taxEvent = {
+        property_id: propertyData.id,
+        user_id: userId,
+        title: 'Property Tax Due',
+        description: `Property tax payment due for ${propertyData.name || 'your property'}`,
+        event_type: TimelineEventType.OTHER,
+        start_date: taxDueDate.toISOString(),
+        is_all_day: true,
+        recurrence_type: TimelineEventRecurrence.YEARLY,
+        notification_days_before: 30,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabaseAdmin
+        .from('timeline_events')
+        .insert(taxEvent);
+      
+      if (error) {
+        console.error('Error creating property tax event:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error generating property tax event:', error);
+      return false;
+    }
+  }
+
+  private async generateInsuranceEvents(propertyData: any, userId: string): Promise<boolean> {
+    try {
+      const today = new Date();
+      const renewalDate = new Date();
+      renewalDate.setFullYear(today.getFullYear() + 1);
+      
+      const insuranceEvent = {
+        property_id: propertyData.id,
+        user_id: userId,
+        title: 'Insurance Renewal',
+        description: `Renew insurance for ${propertyData.name || 'your property'}`,
+        event_type: TimelineEventType.OTHER,
+        start_date: renewalDate.toISOString(),
+        is_all_day: true,
+        recurrence_type: TimelineEventRecurrence.YEARLY,
+        notification_days_before: 30,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { error } = await supabaseAdmin
+        .from('timeline_events')
+        .insert(insuranceEvent);
+      
+      if (error) {
+        console.error('Error creating insurance event:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error generating insurance event:', error);
+      return false;
+    }
   }
 }
 

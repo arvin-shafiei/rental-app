@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, UserPlus, Users, Mail, Phone, User, Shield } from 'lucide-react';
 import { fetchFromApi } from '@/lib/api';
 import TenantLookupForm from './TenantLookupForm';
-import TenantList from './TenantList';
 
 export interface User {
   id: string;
@@ -15,6 +14,7 @@ export interface User {
     display_name: string;
     email: string;
     avatar_url?: string;
+    phone_number?: string;
   };
 }
 
@@ -28,13 +28,7 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
-
-  // Debug logs
-  useEffect(() => {
-    console.log('PropertyTenants component mounted');
-    console.log('Current user ID:', currentUserId);
-    console.log('Property ID:', propertyId);
-  }, []);
+  const [showAddTenant, setShowAddTenant] = useState(false);
 
   // Fetch users on component mount
   useEffect(() => {
@@ -43,36 +37,21 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
     }
   }, [propertyId]);
 
-  // Debug logs for IDs
-  useEffect(() => {
-    console.log("Current User ID:", currentUserId);
-    console.log("Property Owner ID:", ownerId);
-    console.log("Is current user the owner?", currentUserId === ownerId);
-  }, [currentUserId, ownerId]);
-
   // Fallback function to get property owner data if not present in users list
   const fetchPropertyOwner = async () => {
     try {
-      // Get the property details to find the owner
       const propertyData = await fetchFromApi(`/properties/${propertyId}`);
-      
-      // Check if propertyData has the correct structure and contains owner information
       const propertyInfo = propertyData?.data || propertyData;
       
       if (propertyInfo && propertyInfo.user_id) {
-        console.log("Found property owner ID:", propertyInfo.user_id);
-        
-        // Set the owner ID in state
         setOwnerId(propertyInfo.user_id);
         
-        // Get the owner's profile information
         const ownerProfile = await fetchFromApi(`/users/lookup?id=${propertyInfo.user_id}`);
         const profileData = ownerProfile?.data || ownerProfile;
         
         if (profileData) {
-          // Create a user object in the format expected by the component
           const ownerUser: User = {
-            id: `owner-${propertyId}`, // Generate a unique ID for this entry
+            id: `owner-${propertyId}`,
             property_id: propertyId,
             user_id: propertyInfo.user_id,
             user_role: 'owner',
@@ -99,42 +78,23 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
     try {
       setLoading(true);
       
-      // Use the fetchFromApi helper which handles auth correctly
       const response = await fetchFromApi(`/property-users?propertyId=${propertyId}`);
-      
-      // Check if response has a data property (API response structure)
       const result = response?.data || response;
       
-      console.log("Property users fetched:", result);
-      console.log("Current user ID:", currentUserId);
-      
-      // Safely check if result is an array before using .some()
       const usersList = Array.isArray(result) ? result : [];
       const containsCurrentUser = usersList.some((user: any) => user.user_id === currentUserId);
-      console.log("Users list contains current user:", containsCurrentUser);
       
-      // Map through users to ensure complete data
       let formattedUsers = usersList.map((user: any) => {
-        console.log(`User: ${user.user_id}, Role: ${user.user_role}, Email: ${user.profile?.email}`);
-        
-        // If we found an owner, set the owner ID
         if (user.user_role === 'owner') {
           setOwnerId(user.user_id);
         }
-        
         return user;
       });
       
-      // If we have no users or the current user is not in the list (and they should be the owner),
-      // try to fetch the property owner information as a fallback
-      if (formattedUsers.length === 0 || 
-         (currentUserId && !containsCurrentUser)) {
-        console.log("No users found or current user missing - fetching property owner as fallback");
+      if (formattedUsers.length === 0 || (currentUserId && !containsCurrentUser)) {
         const ownerUser = await fetchPropertyOwner();
         
         if (ownerUser) {
-          console.log("Adding owner to users list:", ownerUser);
-          // Add the owner to the users list if they're not already there
           if (!formattedUsers.some(user => user.user_id === ownerUser.user_id)) {
             formattedUsers = [...formattedUsers, ownerUser];
           }
@@ -144,29 +104,26 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
       setUsers(formattedUsers);
     } catch (err: any) {
       console.error("Error fetching property users:", err);
-      setError(err.message || 'Failed to load tenants');
+      setError(err.message || 'Failed to load people');
     } finally {
-      // Always set loading to false to prevent infinite loading state
       setLoading(false);
     }
   };
 
   const handleRemoveUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to remove this tenant from the property?')) {
+    if (!confirm('Remove this person from the property?')) {
       return;
     }
     
     try {
-      // Use the fetchFromApi helper which handles auth correctly
       await fetchFromApi(`/property-users/${propertyId}/${userId}`, {
         method: 'DELETE',
       });
       
-      // Refresh the user list
       fetchPropertyUsers();
     } catch (err: any) {
       console.error("Error removing user:", err);
-      setError(err.message || 'Failed to remove tenant');
+      setError(err.message || 'Failed to remove user');
     }
   };
 
@@ -175,42 +132,121 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-10">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-2">Loading users...</span>
+      <div className="flex items-center py-4">
+        <Loader2 className="w-4 h-4 animate-spin text-blue-600 mr-2" />
+        <span className="text-sm text-gray-600">Loading...</span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">Property Tenants</h2>
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-medium text-gray-900">People</h2>
         
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <p>{error}</p>
-            </div>
-          </div>
+        {isCurrentUserOwner && !showAddTenant && (
+          <button
+            onClick={() => setShowAddTenant(true)}
+            className="text-sm px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Add
+          </button>
         )}
         
-        {/* Only show the Add New Tenant section if current user is the owner */}
-        {isCurrentUserOwner && (
+        {isCurrentUserOwner && showAddTenant && (
+          <button
+            onClick={() => setShowAddTenant(false)}
+            className="text-sm px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+        
+      {error && (
+        <div className="bg-red-50 text-red-700 p-2 mb-3 rounded-md text-sm">
+          <AlertCircle className="h-4 w-4 inline mr-1" />
+          {error}
+        </div>
+      )}
+      
+      {/* Add New Person Section */}
+      {showAddTenant && isCurrentUserOwner && (
+        <div className="mb-4">
           <TenantLookupForm 
-            onUserAdded={fetchPropertyUsers} 
+            onUserAdded={() => {
+              fetchPropertyUsers();
+              setShowAddTenant(false);
+            }} 
             propertyId={propertyId} 
           />
-        )}
-        
-        <TenantList 
-          users={users}
-          currentUserId={currentUserId}
-          ownerId={ownerId}
-          onRemoveUser={handleRemoveUser}
-        />
-      </div>
+        </div>
+      )}
+      
+      {/* People List */}
+      {users.length > 0 ? (
+        <div className="space-y-2">
+          {users.map(user => (
+            <div 
+              key={user.id} 
+              className="flex bg-white p-3 rounded-md border border-gray-200 items-center"
+            >
+              <div className="w-8 h-8 rounded-full mr-3 flex-shrink-0 bg-gray-100 flex items-center justify-center overflow-hidden">
+                {user.profile?.avatar_url ? (
+                  <img 
+                    src={user.profile.avatar_url} 
+                    alt={user.profile?.display_name || 'User'} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="h-4 w-4 text-gray-500" />
+                )}
+              </div>
+              
+              <div className="flex-grow min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <h3 className="font-medium text-gray-900 text-sm truncate">
+                    {user.profile?.display_name || 'Unnamed User'}
+                  </h3>
+                  {user.user_role === 'owner' && (
+                    <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded-sm">
+                      Owner
+                    </span>
+                  )}
+                </div>
+                
+                {user.profile?.email && (
+                  <div className="text-xs text-gray-500 truncate">
+                    {user.profile.email}
+                  </div>
+                )}
+              </div>
+              
+              {isCurrentUserOwner && user.user_role !== 'owner' && (
+                <button
+                  onClick={() => handleRemoveUser(user.user_id)}
+                  className="text-red-500 hover:text-red-700 p-1 ml-1"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-6 bg-gray-50 rounded-md border border-gray-200">
+          <p className="text-sm text-gray-500">No people associated with this property yet.</p>
+          {isCurrentUserOwner && !showAddTenant && (
+            <button 
+              onClick={() => setShowAddTenant(true)}
+              className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+            >
+              Add someone
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 } 

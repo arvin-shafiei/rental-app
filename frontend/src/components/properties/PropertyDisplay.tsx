@@ -1,93 +1,116 @@
 import React from 'react';
-import { Home } from 'lucide-react';
+import { Home, CalendarRange, PiggyBank, Landmark, MapPin } from 'lucide-react';
 import { Property } from './PropertyDetails';
+import { format } from 'date-fns';
 
 interface PropertyDisplayProps {
   property: Property;
 }
 
 export default function PropertyDisplay({ property }: PropertyDisplayProps) {
+  // Format dates if available
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not specified';
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy');
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   return (
-    <>
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex items-center">
-          {property.emoji ? (
-            <span className="text-4xl mr-3">{property.emoji}</span>
-          ) : (
-            <Home className="h-8 w-8 mr-3 text-blue-600" />
-          )}
-          <div>
+    <div className="space-y-8">
+      {/* Property Header */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-8">
+        <div className="flex items-start gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm">
+            {property.emoji ? (
+              <span className="text-3xl">{property.emoji}</span>
+            ) : (
+              <Home className="h-8 w-8 text-blue-600" />
+            )}
+          </div>
+          
+          <div className="space-y-1">
             <h1 className="text-2xl font-bold text-gray-900">{property.name}</h1>
-            <p className="text-black mt-1">
-              {[
-                property.address_line1,
-                property.address_line2,
-                property.city,
-                property.county,
-                property.postcode,
-                property.country
-              ].filter(Boolean).join(', ')}
-            </p>
-          </div>
-        </div>
-        <span className={`px-2 py-1 rounded-full text-xs ${property.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-          {property.is_active ? 'Active' : 'Inactive'}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-2">Property Details</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Type</p>
-              <p className="text-black">{property.property_type || 'Not specified'}</p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-2">Financial Details</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Monthly Rent</p>
-              <p className="text-black">
-                {property.rent_amount ? `£${property.rent_amount.toFixed(2)}` : 'Not specified'}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Deposit</p>
-              <p className="text-black">
-                {property.deposit_amount ? `£${property.deposit_amount.toFixed(2)}` : 'Not specified'}
-              </p>
-            </div>
-            <div className="col-span-2 mt-2">
-              <p className="text-sm font-medium text-gray-500">Landlord Email</p>
-              <p className="text-black">
-                {property.landlord_email || 'Not specified'}
+            <div className="flex items-center text-gray-600">
+              <MapPin className="mr-1 h-4 w-4" />
+              <p className="text-sm">
+                {[
+                  property.address_line1,
+                  property.address_line2,
+                  property.city,
+                  property.county,
+                  property.postcode,
+                  property.country
+                ].filter(Boolean).join(', ')}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-2">Lease Period</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-500">Start Date</p>
-            <p className="text-black">
-              {property.lease_start_date || 'Not specified'}
-            </p>
+      {/* Property Details Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Financial Details Card */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
+            <PiggyBank className="h-6 w-6 text-green-600" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">End Date</p>
-            <p className="text-black">
-              {property.lease_end_date || 'Not specified'}
-            </p>
+          <h3 className="mb-2 text-lg font-medium text-gray-900">Financial Details</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm text-gray-500">Monthly Rent</p>
+              <p className="font-semibold text-gray-900">
+                {property.rent_amount 
+                  ? `£${property.rent_amount.toFixed(2)}` 
+                  : 'Not specified'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Deposit</p>
+              <p className="font-semibold text-gray-900">
+                {property.deposit_amount 
+                  ? `£${property.deposit_amount.toFixed(2)}` 
+                  : 'Not specified'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Lease Period Card */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-50">
+            <CalendarRange className="h-6 w-6 text-purple-600" />
+          </div>
+          <h3 className="mb-2 text-lg font-medium text-gray-900">Lease Period</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm text-gray-500">Start Date</p>
+              <p className="font-semibold text-gray-900">{formatDate(property.lease_start_date)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">End Date</p>
+              <p className="font-semibold text-gray-900">{formatDate(property.lease_end_date)}</p>
+            </div>
           </div>
         </div>
       </div>
-    </>
+
+      {/* Landlord Information */}
+      {property.landlord_email && (
+        <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+              <Landmark className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Landlord Contact</h3>
+              <p className="text-gray-600">{property.landlord_email}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 } 

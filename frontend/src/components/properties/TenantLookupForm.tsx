@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Loader2, AlertCircle, UserPlus, Mail } from 'lucide-react';
+import { Search, Loader2, AlertCircle, UserPlus } from 'lucide-react';
 import { lookupUserByEmail, addUserToProperty } from '@/lib/api';
 import { toast } from '@/components/ui/FormElements';
 
@@ -31,7 +31,6 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
       
       // Use the API helper function
       const data = await lookupUserByEmail(email);
-      console.log("Found user:", data);
       setFoundUser(data);
       setInviteMode(false);
     } catch (err: any) {
@@ -39,7 +38,7 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
       
       // Provide a more user-friendly error message for 404 responses
       if (err.message && err.message.includes('404')) {
-        setSearchError(`No user found with email "${email}". You can invite them by email.`);
+        setSearchError(`No user found with email "${email}"`);
         setInviteMode(true);
       } else {
         setSearchError(err.message || 'Failed to lookup user');
@@ -53,7 +52,6 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
     try {
       setAddingUser(true);
       
-      // Change: Send an invitation instead of directly adding the user
       await addUserToProperty(propertyId, {
         email: userEmail,
         user_role: 'tenant'
@@ -110,62 +108,51 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
   };
 
   return (
-    <div className="bg-white rounded-md shadow-sm p-4 border mb-6">
-      <h3 className="text-lg font-medium mb-3 text-gray-800">Invite New Tenant</h3>
-      <p className="text-sm text-gray-500 mb-4">
-        Enter an email address to send an invitation to join this property as a tenant. The user will need to accept the invitation to be added.
-      </p>
+    <div className="border border-gray-200 bg-white p-4 rounded-md shadow-sm">
+      <h3 className="text-base font-medium mb-2 text-gray-900">Invite your flatmates</h3>
       
-      <form onSubmit={handleLookupUser} className="flex flex-col space-y-4">
+      <form onSubmit={handleLookupUser} className="space-y-3">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            User Email
-          </label>
           <div className="relative">
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
-              className="block w-full rounded-md border-gray-300 border py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10 text-gray-600"
+              placeholder="Email address"
+              className="block w-full rounded-md border-gray-300 border py-2 px-3 text-black placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
             />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
           </div>
+          
           {searchError && (
-            <div className="mt-2 text-sm text-red-600">
-              <div className="flex items-start">
-                <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p>{searchError}</p>
-                  {searchError.includes("No user found") && !inviteMode && (
-                    <ul className="list-disc pl-5 mt-1 text-xs text-gray-600">
-                      <li>Make sure the user has already created an account</li>
-                      <li>Check for typos in the email address</li>
-                      <li>The email must match exactly what was used during registration</li>
-                    </ul>
-                  )}
-                </div>
-              </div>
+            <div className="mt-1 text-sm text-red-600">
+              <p>{searchError}</p>
+              {inviteMode && (
+                <button 
+                  type="button" 
+                  onClick={handleSendInvitation}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-1"
+                >
+                  Send invitation instead
+                </button>
+              )}
             </div>
           )}
         </div>
         
-        <div className="flex space-x-2">
+        <div className="flex gap-2">
           <button
             type="submit"
             disabled={searchingUser}
-            className="inline-flex items-center justify-center bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
           >
             {searchingUser ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-3 w-3 animate-spin mr-1 inline" />
                 Searching...
               </>
             ) : (
-              'Lookup User'
+              'Find'
             )}
           </button>
           
@@ -174,18 +161,15 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
               type="button"
               onClick={handleSendInvitation}
               disabled={addingUser}
-              className="inline-flex items-center justify-center bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+              className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
             >
               {addingUser ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-3 w-3 animate-spin mr-1 inline" />
                   Sending...
                 </>
               ) : (
-                <>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Invitation
-                </>
+                'Invite'
               )}
             </button>
           )}
@@ -193,43 +177,33 @@ export default function TenantLookupForm({ onUserAdded, propertyId }: TenantLook
       </form>
       
       {foundUser && (
-        <div className="mt-4 p-3 border rounded-md bg-blue-50">
+        <div className="mt-3 p-2 rounded-md bg-gray-50 border border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                 {foundUser.avatar_url ? (
                   <img
                     src={foundUser.avatar_url}
                     alt={foundUser.display_name || foundUser.email}
-                    className="h-10 w-10 rounded-full"
+                    className="h-8 w-8 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="text-gray-500 text-sm">
+                  <span className="text-blue-700 font-medium text-xs">
                     {(foundUser.display_name || foundUser.email || 'User').charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
-              <div className="ml-3">
+              <div className="ml-2">
                 <p className="text-sm font-medium text-gray-900">{foundUser.display_name || 'User'}</p>
-                <p className="text-sm text-gray-500">{foundUser.email}</p>
+                <p className="text-xs text-gray-500">{foundUser.email}</p>
               </div>
             </div>
             <button
               onClick={() => handleAddUser(foundUser.id, foundUser.email)}
               disabled={addingUser}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              className="px-2.5 py-1 text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
             >
-              {addingUser ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Mail className="h-4 w-4 mr-1" />
-                  Send Invitation
-                </>
-              )}
+              {addingUser ? 'Sending...' : 'Invite'}
             </button>
           </div>
         </div>

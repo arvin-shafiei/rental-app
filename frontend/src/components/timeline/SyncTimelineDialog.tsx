@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AlertCircle, Loader2, X } from 'lucide-react';
+import { AlertCircle, Loader2, X, Calendar } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { format, parseISO } from 'date-fns';
 
 interface SyncTimelineDialogProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface SyncTimelineDialogProps {
     autoGenerateLeaseEvents: boolean;
     upfrontRentPaid: number;
     rentDueDay: number;
+    startDate: string;
+    inspectionFrequency?: string;
   }) => Promise<void>;
   propertyName: string;
 }
@@ -31,7 +34,11 @@ export default function SyncTimelineDialog({
   const [generateLeaseEvents, setGenerateLeaseEvents] = useState(true);
   const [hasUpfrontRent, setHasUpfrontRent] = useState(false);
   const [upfrontRentAmount, setUpfrontRentAmount] = useState<number>(0);
-  const [rentDueDay, setRentDueDay] = useState<number>(1);
+  const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [inspectionFrequency, setInspectionFrequency] = useState<string>('annual');
+  
+  // Derive rent due day from the selected start date
+  const rentDueDay = startDate ? new Date(startDate).getDate() : 1;
 
   // Only mount the portal on the client
   useEffect(() => {
@@ -51,7 +58,9 @@ export default function SyncTimelineDialog({
         autoGenerateRentDueDates: generateRentDueDates,
         autoGenerateLeaseEvents: generateLeaseEvents,
         upfrontRentPaid: hasUpfrontRent ? upfrontRentAmount : 0,
-        rentDueDay: rentDueDay
+        rentDueDay,
+        startDate,
+        inspectionFrequency
       });
       
       // Reset form state after successful submission
@@ -79,7 +88,7 @@ export default function SyncTimelineDialog({
       {/* Dialog content */}
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full relative z-10 mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium">Generate Events for {propertyName}</h2>
+          <h2 className="text-lg font-medium text-black">Set Up Timeline for {propertyName}</h2>
           <button 
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500"
@@ -89,7 +98,7 @@ export default function SyncTimelineDialog({
           </button>
         </div>
         
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-black mb-6">
           Generate timeline events based on your property information
         </p>
 
@@ -106,88 +115,152 @@ export default function SyncTimelineDialog({
           </div>
         )}
 
-        <div className="grid gap-4 py-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="rent-due-dates"
-              checked={generateRentDueDates}
-              onChange={(e) => setGenerateRentDueDates(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="rent-due-dates" className="text-sm text-gray-700">
-              Generate rent due dates
-            </label>
-          </div>
-
-          {generateRentDueDates && (
-            <div className="space-y-2 pl-6">
-              <label htmlFor="rent-due-day" className="block text-sm font-medium text-gray-700">
-                Day of month rent is due
+        <div className="space-y-5">
+          {/* Start Date Field */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-black">
+                Start Date
               </label>
-              <input
-                id="rent-due-day"
-                type="number"
-                min="1"
-                max="31"
-                value={rentDueDay}
-                onChange={(e) => setRentDueDay(Number(e.target.value))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-              <p className="text-xs text-gray-500 mt-1">Default is the 1st day of each month</p>
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 text-blue-600 mr-1" />
+                <span className="text-xs text-gray-500">When should events begin?</span>
+              </div>
             </div>
-          )}
-
-          <div className="flex items-center space-x-2">
             <input
-              type="checkbox"
-              id="lease-events"
-              checked={generateLeaseEvents}
-              onChange={(e) => setGenerateLeaseEvents(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-black shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
-            <label htmlFor="lease-events" className="text-sm text-gray-700">
-              Generate lease start/end events
-            </label>
+            {startDate && (
+              <p className="text-xs text-gray-500 mt-1">
+                Rent will be due on day {rentDueDay} of each month
+              </p>
+            )}
           </div>
-
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="upfront-rent"
-              checked={hasUpfrontRent}
-              onChange={(e) => setHasUpfrontRent(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="upfront-rent" className="text-sm text-gray-700">
-              I've already paid some rent upfront
-            </label>
-          </div>
-
-          {hasUpfrontRent && (
-            <div className="space-y-2 pl-6">
-              <label htmlFor="upfront-amount" className="block text-sm font-medium text-gray-700">
-                Number of months paid upfront
+          
+          {/* Rent Due Dates */}
+          <div>
+            <div className="flex items-center mb-2">
+              <input
+                type="checkbox"
+                id="generate-rent"
+                checked={generateRentDueDates}
+                onChange={(e) => setGenerateRentDueDates(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="generate-rent" className="ml-2 block text-sm text-black font-medium">
+                Generate Monthly Rent Due Dates
               </label>
-              <input
-                id="upfront-amount"
-                type="number"
-                min="0"
-                step="1"
-                value={upfrontRentAmount.toString()}
-                onChange={(e) => setUpfrontRentAmount(Number(e.target.value))}
-                placeholder="e.g., 1 for one month"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
             </div>
-          )}
+            
+            {generateRentDueDates && (
+              <div className="ml-6 space-y-3 mt-3 bg-gray-50 p-3 rounded-md border border-gray-200">                
+                <div>
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id="has-upfront-rent"
+                      checked={hasUpfrontRent}
+                      onChange={(e) => setHasUpfrontRent(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="has-upfront-rent" className="ml-2 block text-sm text-black">
+                      I've paid rent upfront
+                    </label>
+                  </div>
+                  
+                  {hasUpfrontRent && (
+                    <div className="ml-6 mt-2">
+                      <label htmlFor="upfront-months" className="block text-sm text-black mb-1">
+                        Number of Months Paid Upfront
+                      </label>
+                      <input
+                        type="number"
+                        id="upfront-months"
+                        min="0"
+                        max="36"
+                        value={upfrontRentAmount}
+                        onChange={(e) => setUpfrontRentAmount(parseInt(e.target.value, 10) || 0)}
+                        className="w-full rounded-md border border-gray-300 py-1.5 px-3 text-black shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Lease Start/End Events */}
+          <div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="generate-lease"
+                checked={generateLeaseEvents}
+                onChange={(e) => setGenerateLeaseEvents(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="generate-lease" className="ml-2 block text-sm text-black font-medium">
+                Generate Lease Start/End Events
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Creates timeline events for your lease start and end dates
+            </p>
+          </div>
+          
+          {/* Inspection Frequency */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-medium text-black mb-3">Property Inspections</h3>
+            
+            <div className="space-y-2 mb-3">
+              <label className="text-sm text-black mb-1 block">How often do you have inspections?</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInspectionFrequency('quarterly')}
+                  className={`px-3 py-1.5 text-sm rounded-full border ${
+                    inspectionFrequency === 'quarterly' 
+                      ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                      : 'border-gray-300 text-black'
+                  }`}
+                >
+                  Quarterly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectionFrequency('biannual')}
+                  className={`px-3 py-1.5 text-sm rounded-full border ${
+                    inspectionFrequency === 'biannual' 
+                      ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                      : 'border-gray-300 text-black'
+                  }`}
+                >
+                  Every 6 Months
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectionFrequency('annual')}
+                  className={`px-3 py-1.5 text-sm rounded-full border ${
+                    inspectionFrequency === 'annual' 
+                      ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                      : 'border-gray-300 text-black'
+                  }`}
+                >
+                  Annual
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex justify-end space-x-3 mt-6">
+        <div className="flex justify-end space-x-3 mt-8">
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-black shadow-sm hover:bg-gray-50"
           >
             Cancel
           </button>

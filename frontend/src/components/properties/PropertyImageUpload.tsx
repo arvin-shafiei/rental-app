@@ -1,18 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Camera, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
 interface PropertyImageUploadProps {
   propertyId: string;
 }
 
+// List of common room types in a property
+const roomOptions = [
+  "Bedroom",
+  "Living Room",
+  "Kitchen",
+  "Bathroom",
+  "Hallway",
+  "Dining Room",
+  "Office",
+  "Garden",
+  "Balcony",
+  "Exterior",
+  "Other"
+];
+
 export default function PropertyImageUpload({ propertyId }: PropertyImageUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any | null>(null);
   const [roomName, setRoomName] = useState<string>('');
+  const [customRoom, setCustomRoom] = useState<string>('');
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState<boolean>(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isVideo, setIsVideo] = useState<boolean>(false);
+  const [showSuccess, setShowSuccess] = useState<boolean>(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
+  const dropAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Get the auth token
@@ -24,33 +47,109 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
     getAuthToken();
   }, []);
 
-  // Handle file selection
+  // Create preview when file is selected
+  useEffect(() => {
+    if (selectedFile) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+      setIsVideo(selectedFile.type.startsWith('video/'));
+      
+      // Cleanup function to revoke the URL when no longer needed
+      return () => URL.revokeObjectURL(url);
+    }
+    
+    return undefined;
+  }, [selectedFile]);
+
+  // Handle file selection from input
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
-      setUploadResult(null); // Clear previous upload results
+      setUploadResult(null);
+      setShowSuccess(false);
     }
   };
 
-  // Handle room name input
-  const handleRoomNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRoomName(e.target.value);
+  // Handle drag events for drag & drop
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  // Handle drop event
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      // Check if file is image or video
+      if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+        setSelectedFile(file);
+        setUploadResult(null);
+        setShowSuccess(false);
+      }
+    }
+  };
+
+  // Handle room selection
+  const handleRoomChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setRoomName(value);
+    
+    // Clear custom room if a pre-defined room is selected
+    if (value !== 'custom') {
+      setCustomRoom('');
+    }
+  };
+
+  // Handle custom room name input
+  const handleCustomRoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomRoom(e.target.value);
+  };
+
+  // Activate file input when clicking on drop area
+  const activateFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Activate camera/video recording
+  const activateCamera = () => {
+    if (videoRef.current) {
+      videoRef.current.click();
+    }
+  };
+
+  // Get the final room name (either from dropdown or custom input)
+  const getFinalRoomName = (): string => {
+    if (roomName === 'custom' && customRoom.trim()) {
+      return customRoom.trim();
+    }
+    return roomName;
   };
 
   // Handle file upload
   const handleUpload = async () => {
+    const finalRoomName = getFinalRoomName();
+    
     if (!selectedFile) {
-      alert('Please select a file first');
       return;
     }
 
     if (!authToken) {
-      alert('You need to be logged in to upload files');
       return;
     }
 
-    if (!roomName.trim()) {
-      alert('Please enter a room name');
+    if (!finalRoomName) {
       return;
     }
 
@@ -63,7 +162,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
       formData.append('image', selectedFile);
       
       // Build the URL with query parameters for propertyId and roomName
-      let uploadUrl = `${backendUrl}/upload/image?propertyId=${propertyId}&roomName=${encodeURIComponent(roomName.trim())}`;
+      let uploadUrl = `${backendUrl}/upload/image?propertyId=${propertyId}&roomName=${encodeURIComponent(finalRoomName)}`;
       
       // Make the request to the backend
       const response = await fetch(uploadUrl, {
@@ -77,15 +176,18 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
       if (response.ok) {
         const result = await response.json();
         setUploadResult(result);
-        alert('File uploaded successfully!');
+        setShowSuccess(true);
+        
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setShowSuccess(false);
+        }, 3000);
       } else {
         const errorData = await response.json();
         console.error('Upload failed:', errorData);
-        alert(`Upload failed: ${errorData.message || response.statusText}`);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert(`Error uploading file: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsUploading(false);
     }
@@ -94,62 +196,171 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   // Handle file reset
   const handleReset = () => {
     setSelectedFile(null);
+    setPreviewUrl(null);
     setUploadResult(null);
+    setShowSuccess(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div className="mt-8 pt-4 border-t">
+    <div className="pt-2">
       <div className="flex items-center mb-4">
         <Upload className="w-5 h-5 mr-2 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-700">Property Images</h3>
+        <h3 className="text-lg font-semibold text-gray-700">Add Media</h3>
       </div>
       
-      <div className="bg-gray-50 rounded-lg p-4">
-        <div className="mb-3">
-          <label htmlFor="room-name" className="block text-sm font-medium text-gray-700 mb-1">
-            Room Name: <span className="text-red-500">*</span>
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        {/* Room selection */}
+        <div className="p-4 border-b border-gray-100">
+          <label htmlFor="room-select" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Choose a Room
           </label>
-          <input
-            id="room-name"
-            type="text"
+          <select
+            id="room-select"
             value={roomName}
-            onChange={handleRoomNameChange}
-            placeholder="e.g. Bedroom, Kitchen, etc."
-            className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-600"
+            onChange={handleRoomChange}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
             disabled={isUploading}
-            required
-          />
-        </div>
-        
-        {/* File input */}
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Select Image:
-          </label>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            disabled={!authToken || isUploading}
-            className="block w-full mb-2 text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
-            accept="image/*"
-          />
-          {selectedFile && (
-            <div className="text-sm text-gray-500 mt-1">
-              Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+          >
+            <option value="">Select room...</option>
+            {roomOptions.map((room) => (
+              <option key={room} value={room.toLowerCase().replace(' ', '-')}>
+                {room}
+              </option>
+            ))}
+            <option value="custom">Custom...</option>
+          </select>
+          
+          {roomName === 'custom' && (
+            <div className="mt-2">
+              <label htmlFor="custom-room" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Custom Room Name
+              </label>
+              <input
+                id="custom-room"
+                type="text"
+                value={customRoom}
+                onChange={handleCustomRoomChange}
+                placeholder="Enter custom room name"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                disabled={isUploading}
+              />
             </div>
           )}
         </div>
         
-        {/* Upload buttons */}
-        <div className="flex space-x-2">
+        {/* Drag & drop area */}
+        <div 
+          ref={dropAreaRef}
+          className={`p-6 flex flex-col items-center justify-center border-dashed border-2 rounded-md m-4 cursor-pointer transition-colors ${
+            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
+          }`}
+          onClick={activateFileInput}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          {!selectedFile ? (
+            <>
+              <div className="flex items-center justify-center mb-2">
+                <ImageIcon className="w-8 h-8 text-gray-400 mr-2" />
+                <Camera className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-center mb-2">
+                Drag & drop an image or video here, or click to select
+              </p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button" 
+                  className="py-1.5 px-3 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    activateFileInput();
+                  }}
+                >
+                  Choose File
+                </button>
+                
+                <button
+                  type="button" 
+                  className="py-1.5 px-3 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    activateCamera();
+                  }}
+                >
+                  <Camera className="w-3.5 h-3.5 inline-block mr-1" />
+                  Record
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="w-full">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">Preview</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReset();
+                  }}
+                  className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex justify-center overflow-hidden rounded-md max-h-64 bg-gray-50 mt-2">
+                {isVideo ? (
+                  <video 
+                    src={previewUrl || ''}
+                    controls
+                    className="max-h-64 max-w-full object-contain"
+                  />
+                ) : (
+                  <img 
+                    src={previewUrl || ''} 
+                    alt="Preview" 
+                    className="max-h-64 max-w-full object-contain"
+                  />
+                )}
+              </div>
+              <div className="text-sm text-gray-500 mt-2 flex justify-between">
+                <span>{selectedFile.name}</span>
+                <span>{Math.round(selectedFile.size / 1024)} KB</span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Hidden file inputs */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept="image/*,video/*"
+          disabled={isUploading}
+        />
+        
+        <input
+          type="file"
+          ref={videoRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept="video/*"
+          capture="environment"
+          disabled={isUploading}
+        />
+        
+        {/* Upload button */}
+        <div className="px-4 py-3 bg-gray-50 flex justify-end">
           <button
             onClick={handleUpload}
-            disabled={!selectedFile || !authToken || isUploading}
-            className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            disabled={!selectedFile || !authToken || isUploading || !getFinalRoomName()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
             {isUploading ? (
               <>
@@ -159,40 +370,18 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
             ) : (
               <>
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Image
+                Upload
               </>
             )}
-          </button>
-          
-          <button
-            onClick={handleReset}
-            disabled={!selectedFile || isUploading}
-            className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Reset
           </button>
         </div>
       </div>
       
-      {/* Upload result */}
-      {uploadResult && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="text-lg font-medium mb-2 text-green-700">Upload Successful!</h3>
-          {uploadResult.data?.url && (
-            <div className="mt-2">
-              <p className="text-sm text-gray-600 mb-2">
-                Image uploaded to: {uploadResult.data.roomName}
-              </p>
-              <div className="mt-3">
-                <h4 className="text-md font-medium mb-1">Image Preview:</h4>
-                <img 
-                  src={uploadResult.data.url} 
-                  alt="Uploaded" 
-                  className="max-w-full max-h-64 object-contain border rounded"
-                />
-              </div>
-            </div>
-          )}
+      {/* Success message toast */}
+      {showSuccess && (
+        <div className="fixed bottom-4 right-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md shadow-lg flex items-center z-50 animate-slideInUp">
+          <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+          <p>Successfully uploaded to <strong>{uploadResult?.data?.roomName.replace(/-/g, ' ')}</strong></p>
         </div>
       )}
     </div>

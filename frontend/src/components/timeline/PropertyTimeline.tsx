@@ -6,7 +6,12 @@ import {
   Plus, 
   RefreshCw,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  ClipboardList,
+  Bell,
+  X,
+  Trash2
 } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, isSameDay, compareAsc, compareDesc } from 'date-fns';
 import { 
@@ -23,6 +28,7 @@ import SyncTimelineDialog from './SyncTimelineDialog';
 import TimelineEventCard from './TimelineEventCard';
 import TimelineEventForm from './TimelineEventForm';
 import CalendarExportDropdown from './CalendarExportDropdown';
+import { createPortal } from 'react-dom';
 
 interface PropertyTimelineProps {
   propertyId: string;
@@ -36,9 +42,33 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [showSimpleSetupDialog, setShowSimpleSetupDialog] = useState(false); 
+  const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   const [calendarButtonPosition, setCalendarButtonPosition] = useState({ top: 0, left: 0 });
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [clearInProgress, setClearInProgress] = useState(false);
+  
+  // Simple setup form state
+  const [simpleSetupOptions, setSimpleSetupOptions] = useState({
+    includeInspections: true,
+    includeMaintenanceReminders: true,
+    includePropertyTaxes: false,
+    includeInsurance: false,
+    rentSetup: null as {
+      autoGenerateRentDueDates: boolean;
+      autoGenerateLeaseEvents: boolean;
+      upfrontRentPaid: number;
+      rentDueDay: number;
+    } | null
+  });
+  
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
   
   const [newEvent, setNewEvent] = useState({  
     title: '',
@@ -65,6 +95,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
       if (Array.isArray(eventsData)) {
         console.log(`Total events received: ${eventsData.length}`);
         setEvents(eventsData);
+        setIsFirstLoad(false);
       } else {
         console.warn("API response is not an array, setting empty events list");
         setEvents([]);
@@ -84,7 +115,45 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     }
   }, [propertyId, fetchEvents]);
   
-  const handleSyncTimeline = () => {
+  const handleQuickSetup = () => {
+    setShowSimpleSetupDialog(true);
+  };
+  
+  const handleSimpleSetupConfirm = async () => {
+    try {
+      setSyncing(true);
+      setError(null);
+      
+      // Get the start date from the component state
+      const startDateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+      const startDateValue = startDateInput?.value || format(new Date(), 'yyyy-MM-dd');
+      
+      const options = {
+        autoGenerateRentDueDates: simpleSetupOptions.rentSetup?.autoGenerateRentDueDates || false,
+        autoGenerateLeaseEvents: simpleSetupOptions.rentSetup?.autoGenerateLeaseEvents || false,
+        upfrontRentPaid: simpleSetupOptions.rentSetup?.upfrontRentPaid || 0,
+        rentDueDay: simpleSetupOptions.rentSetup?.rentDueDay || 1,
+        includeInspections: simpleSetupOptions.includeInspections,
+        includeMaintenanceReminders: simpleSetupOptions.includeMaintenanceReminders,
+        includePropertyTaxes: simpleSetupOptions.includePropertyTaxes,
+        includeInsurance: simpleSetupOptions.includeInsurance,
+        startDate: startDateValue // Add the start date to options
+      };
+      
+      await syncPropertyTimeline(propertyId, options);
+      
+      // Refresh events
+      await fetchEvents();
+      setShowSimpleSetupDialog(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to set up timeline');
+      console.error('Error setting up timeline:', err);
+    } finally {
+      setSyncing(false);
+    }
+  };
+  
+  const handleCustomSetup = () => {
     setShowSyncDialog(true);
   };
   
@@ -93,6 +162,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     autoGenerateLeaseEvents: boolean;
     upfrontRentPaid: number;
     rentDueDay: number;
+    startDate: string;
   }) => {
     try {
       setSyncing(true);
@@ -104,7 +174,8 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
         autoGenerateRentDueDates: options.autoGenerateRentDueDates,
         autoGenerateLeaseEvents: options.autoGenerateLeaseEvents,
         upfrontRentPaid: options.upfrontRentPaid,
-        rentDueDay: options.rentDueDay
+        rentDueDay: options.rentDueDay,
+        startDate: options.startDate
       });
       
       // Refresh events
@@ -115,6 +186,33 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
       throw err; // Re-throw to be caught by the dialog
     } finally {
       setSyncing(false);
+    }
+  };
+  
+  const handleClearAllEvents = () => {
+    setShowClearConfirmDialog(true);
+  };
+  
+  const handleConfirmClearAll = async () => {
+    try {
+      setClearInProgress(true);
+      setError(null);
+      
+      // Use the syncPropertyTimeline API with clearAllEvents flag
+      await syncPropertyTimeline(propertyId, {
+        autoGenerateRentDueDates: false,
+        autoGenerateLeaseEvents: false,
+        clearAllEvents: true
+      });
+      
+      // Refresh events
+      await fetchEvents();
+      setShowClearConfirmDialog(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to clear events');
+      console.error('Error clearing events:', err);
+    } finally {
+      setClearInProgress(false);
     }
   };
   
@@ -251,6 +349,70 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
     })
     .sort((a, b) => compareDesc(parseISO(a.start_date), parseISO(b.start_date)));
   
+  // Clear All Confirmation Dialog
+  const ClearConfirmDialog = () => {
+    if (!showClearConfirmDialog || !mounted) return null;
+    
+    return createPortal(
+      <div className="fixed inset-0 flex items-center justify-center z-50">
+        {/* Semi-transparent backdrop */}
+        <div 
+          className="absolute inset-0 bg-black/50" 
+          onClick={() => setShowClearConfirmDialog(false)}
+        ></div>
+        
+        {/* Dialog content */}
+        <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full relative z-10 mx-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-red-600">Clear All Events</h2>
+            <button 
+              onClick={() => setShowClearConfirmDialog(false)}
+              className="text-gray-400 hover:text-gray-500"
+              disabled={clearInProgress}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="py-2 text-gray-700">
+            <p className="mb-2">
+              <strong>Warning:</strong> This will permanently delete all events for this property.
+            </p>
+            <p>This action cannot be undone. Are you sure you want to continue?</p>
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={() => setShowClearConfirmDialog(false)}
+              disabled={clearInProgress}
+              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleConfirmClearAll} 
+              disabled={clearInProgress}
+              className="inline-flex items-center rounded-md border border-transparent bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
+            >
+              {clearInProgress ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear All Events
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+  
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       {/* Calendar Export Dropdown */}
@@ -269,8 +431,25 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
           Property Timeline
         </h3>
         <div className="flex space-x-2">
+          {events.length > 0 && (
+            <button
+              onClick={handleClearAllEvents}
+              disabled={clearInProgress}
+              className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Clear All
+            </button>
+          )}
           <button
-            onClick={handleSyncTimeline}
+            onClick={handleAddEvent}
+            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Event
+          </button>
+          <button
+            onClick={handleCustomSetup}
             disabled={syncing}
             className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium ${
               syncing
@@ -283,14 +462,7 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
             ) : (
               <RefreshCw className="h-4 w-4 mr-1" />
             )}
-            Generate Events
-          </button>
-          <button
-            onClick={handleAddEvent}
-            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Event
+            Rent & Lease
           </button>
         </div>
       </div>
@@ -306,18 +478,63 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
             <span className="block sm:inline">{error}</span>
           </div>
         ) : events.length === 0 ? (
-          <div className="text-center py-6">
-            <Calendar className="h-12 w-12 text-gray-400 mx-auto" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No events</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating a new event.</p>
-            <div className="mt-6">
-              <button
-                onClick={handleAddEvent}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                New Event
-              </button>
+          <div className="py-6">
+            <div className="mb-6 border-b pb-4">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Let's Set Up Your Timeline</h3>
+                <p className="text-sm text-gray-500 mt-1">Easily manage important dates for your property</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 mb-4">
+                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center mb-2">
+                    <div className="bg-blue-100 rounded-full p-2 mr-3">
+                      <ClipboardList className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-800">Property Inspections</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">Schedule recurring property inspection reminders</p>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center mb-2">
+                    <div className="bg-green-100 rounded-full p-2 mr-3">
+                      <Bell className="h-5 w-5 text-green-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-800">Maintenance Checks</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">Regular maintenance reminders for your property</p>
+                </div>
+              </div>
+              <div className="flex justify-center space-x-3">
+                <button
+                  onClick={handleCustomSetup}
+                  disabled={syncing}
+                  className="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors shadow-sm"
+                >
+                  {syncing ? (
+                    <span className="flex items-center">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Setting up...
+                    </span>
+                  ) : (
+                    'Set Up Timeline'
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-center items-center">
+              <div className="text-center max-w-md">
+                <h4 className="font-medium text-gray-800 mb-2">Or add events manually</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Create custom events like repairs, insurance renewals, or other important dates.
+                </p>
+                <button
+                  onClick={handleAddEvent}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  New Event
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -367,20 +584,17 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
 
       {/* Add/Edit Event Form */}
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-opacity-30" onClick={() => setShowAddForm(false)}></div>
-          <div className="z-10">
-            <TimelineEventForm
-              editingEvent={editingEvent}
-              initialValues={newEvent}
-              onSubmit={handleSubmitEvent}
-              onCancel={() => setShowAddForm(false)}
-            />
-          </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <TimelineEventForm
+            editingEvent={editingEvent}
+            initialValues={newEvent}
+            onSubmit={handleSubmitEvent}
+            onCancel={() => setShowAddForm(false)}
+          />
         </div>
       )}
-      
-      {/* Sync timeline dialog */}
+
+      {/* Sync Timeline Dialog */}
       {showSyncDialog && (
         <SyncTimelineDialog
           isOpen={showSyncDialog}
@@ -389,6 +603,9 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
           propertyName={propertyName}
         />
       )}
+      
+      {/* Clear Confirmation Dialog */}
+      <ClearConfirmDialog />
     </div>
   );
 } 

@@ -3,19 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Loader2, Trash, Users, Mail } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Trash } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
 import { supabase } from '@/lib/supabase/client';
 import PropertyTimeline from '@/components/timeline/PropertyTimeline';
-import TabButton from '@/components/ui/TabButton';
 import PropertyDetails from '@/components/properties/PropertyDetails';
 import PropertyImageUpload from '@/components/properties/PropertyImageUpload';
 import PropertyImageViewer from '@/components/properties/PropertyImageViewer';
 import PropertyDocumentUpload from '@/components/properties/PropertyDocumentUpload';
 import PropertyDocumentViewer from '@/components/properties/PropertyDocumentViewer';
 import PropertyTenants from '@/components/properties/PropertyTenants';
-import PropertyLandlordContact from '@/components/properties/PropertyLandlordContact';
 import type { Property } from '@/components/properties/PropertyDetails';
+
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
 
 export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<Property>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState('overview');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Get the current user ID using the same approach as dashboard/page.tsx
@@ -157,31 +158,38 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
     );
   }
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
   return (
-    <div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <Link 
             href="/dashboard/properties" 
-            className="rounded-md bg-blue-50 px-3.5 py-2 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+            className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 transition-colors"
           >
             <ArrowLeft className="inline-block w-4 h-4 mr-2" />
             Back to Properties
           </Link>
+          {property.name && (
+            <h1 className="text-2xl font-bold text-gray-900 ml-2">{property.name}</h1>
+          )}
         </div>
         
         {!isEditing && (
           <div className="flex space-x-2">
             <button
               onClick={handleDeleteProperty}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
             >
               <Trash className="w-4 h-4 mr-2" />
               Delete
             </button>
             <button
               onClick={() => setIsEditing(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
             >
               <Edit className="w-4 h-4 mr-2" />
               Edit
@@ -190,97 +198,79 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
         )}
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        {/* Tab navigation */}
-        <div className="border-b border-gray-200 bg-gray-50 px-4">
-          <div className="flex space-x-4">
-            <TabButton 
-              active={activeTab === 'details'} 
-              onClick={() => setActiveTab('details')}
-            >
-              Details
-            </TabButton>
-            <TabButton 
-              active={activeTab === 'images'} 
-              onClick={() => setActiveTab('images')}
-            >
-              Images
-            </TabButton>
-            <TabButton 
-              active={activeTab === 'documents'} 
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents
-            </TabButton>
-            <TabButton 
-              active={activeTab === 'timeline'} 
-              onClick={() => setActiveTab('timeline')}
-            >
-              Timeline
-            </TabButton>
-            <TabButton 
-              active={activeTab === 'tenants'} 
-              onClick={() => setActiveTab('tenants')}
-            >
-              Tenants
-            </TabButton>
-            <TabButton 
-              active={activeTab === 'contact'} 
-              onClick={() => setActiveTab('contact')}
-            >
-              <Mail className="w-4 h-4 mr-1" />
-              Contact Landlord
-            </TabButton>
+      <div className="space-y-6">
+        <Tabs
+          defaultValue="overview"
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
+          <div className="mb-6">
+            <TabsList className="inline-flex h-10 items-center justify-center rounded-full bg-gray-100 p-1 text-slate-500 w-auto">
+              <TabsTrigger 
+                value="overview" 
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger 
+                value="images" 
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Images
+              </TabsTrigger>
+              <TabsTrigger 
+                value="documents" 
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Documents
+              </TabsTrigger>
+              <TabsTrigger 
+                value="timeline" 
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+              >
+                Timeline
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </div>
-        
-        {/* Tab content */}
-        <div className="p-6">
-          {activeTab === 'details' && (
-            <PropertyDetails 
-              property={property}
-              isEditing={isEditing}
-              formData={formData}
-              isSaving={isSaving}
-              handleChange={handleChange}
-              handleSubmit={handleSubmit}
-              setIsEditing={setIsEditing}
-            />
-          )}
-          
-          {activeTab === 'images' && (
-            <>
+
+          <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <TabsContent value="overview" className="p-6 focus:outline-none">
+              <div className="space-y-10">
+                <PropertyDetails 
+                  property={property}
+                  isEditing={isEditing}
+                  formData={formData}
+                  isSaving={isSaving}
+                  handleChange={handleChange}
+                  handleSubmit={handleSubmit}
+                  setIsEditing={setIsEditing}
+                />
+                
+                <div className="mt-8 border-t border-gray-200 pt-8">
+                  <PropertyTenants 
+                    propertyId={property.id} 
+                    currentUserId={currentUserId || ''} 
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="images" className="p-6 focus:outline-none">
               <PropertyImageUpload propertyId={property.id} />
               <PropertyImageViewer propertyId={property.id} />
-            </>
-          )}
-          
-          {activeTab === 'documents' && (
-            <>
+            </TabsContent>
+            
+            <TabsContent value="documents" className="p-6 focus:outline-none">
               <PropertyDocumentUpload propertyId={property.id} />
               <PropertyDocumentViewer propertyId={property.id} />
-            </>
-          )}
-          
-          {activeTab === 'timeline' && (
-            <PropertyTimeline propertyId={property.id} propertyName={property.name} />
-          )}
-          
-          {activeTab === 'tenants' && (
-            <PropertyTenants 
-              propertyId={property.id} 
-              currentUserId={currentUserId || ''} 
-            />
-          )}
-          
-          {activeTab === 'contact' && (
-            <PropertyLandlordContact 
-              propertyId={property.id}
-              propertyName={property.name}
-              landlordEmail={property.landlord_email}
-            />
-          )}
-        </div>
+            </TabsContent>
+            
+            <TabsContent value="timeline" className="p-6 focus:outline-none">
+              <PropertyTimeline propertyId={property.id} propertyName={property.name} />
+            </TabsContent>
+          </Card>
+        </Tabs>
       </div>
     </div>
   );
