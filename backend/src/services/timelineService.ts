@@ -243,6 +243,7 @@ export class TimelineService {
         )
       `)
       .in('property_id', propertyIds.length > 0 ? propertyIds : ['no-properties'])
+      .eq('user_id', userId) // Only show events created by this user
       .order('start_date', { ascending: true });
     
     if (error) {
@@ -252,21 +253,11 @@ export class TimelineService {
     
     console.log(`Retrieved ${data?.length || 0} total timeline events for user ${userId}`);
     
-    // Filter agreement task events to only show ones assigned to the current user
-    // All other event types are shown to all users who have access to the property
-    const filteredEvents = data.filter(event => {
-      // If it's an agreement task event, only show it to the assigned user
-      if (event.event_type === 'agreement_task') {
-        return event.user_id === userId;
-      }
-      // Show all other event types to all users with property access
-      return true;
-    });
-    
-    console.log(`Filtered to ${filteredEvents.length} events after removing agreement tasks not assigned to user`);
+    // No need to filter by event type anymore since we're already filtering by user_id in the query
+    console.log(`Returning ${data.length} events that belong to user ${userId}`);
     
     // Add property_name to each event for easier display
-    const eventsWithPropertyNames = filteredEvents.map(event => ({
+    const eventsWithPropertyNames = data.map(event => ({
       ...event,
       property_name: event.properties?.name
     }));
@@ -363,7 +354,25 @@ export class TimelineService {
    * Generate timeline events based on property data
    */
   async syncPropertyTimeline(propertyId: string, userId: string, options: TimelineSyncOptions = {}): Promise<boolean> {
-    // First, get the property data using the service role client
+    // First check if the user has access to this property via the property_users table
+    const { data: propertyAccess, error: accessError } = await supabaseAdmin
+      .from('property_users')
+      .select('id, user_role')
+      .eq('property_id', propertyId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (accessError) {
+      console.error('Error checking property access:', accessError);
+      return false;
+    }
+    
+    if (!propertyAccess) {
+      console.error('User does not have access to this property:', { propertyId, userId });
+      return false;
+    }
+
+    // Get the property data using the service role client
     const { data: property, error: propertyError } = await supabaseAdmin
       .from('properties')
       .select('*')
@@ -380,17 +389,14 @@ export class TimelineService {
       return false;
     }
     
-    // Verify this property belongs to the requested user
-    if (property.user_id !== userId) {
-      console.error('User does not have access to this property:', { propertyId, userId, ownerId: property.user_id });
-      return false;
-    }
-
+    // We no longer need to verify property ownership here, as we checked access through property_users
+    
     // Log debug information
     console.log('Successfully found property:', {
       propertyId: propertyId,
       userId: userId,
-      propertyName: property.name
+      propertyName: property.name,
+      userRole: propertyAccess.user_role
     });
 
     try {

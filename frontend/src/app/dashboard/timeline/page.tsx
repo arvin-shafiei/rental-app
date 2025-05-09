@@ -69,8 +69,8 @@ export default function TimelinePage() {
     try {
       setLoading(true);
       setError(null);
-      // This function now only returns agreement_task events that belong to the current user
-      // All other event types are still shown to all users with access to the property
+      // This now only returns events that belong to the current user
+      // Each user will only see their own events (rent due, lease events, etc.)
       const result = await getAllTimelineEvents(90);
       console.log('Timeline events response:', result);
       
