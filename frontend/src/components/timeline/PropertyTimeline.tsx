@@ -527,13 +527,13 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
                 <p className="text-sm text-gray-600 mb-4">
                   Create custom events like repairs, insurance renewals, or other important dates.
                 </p>
-                <button
-                  onClick={handleAddEvent}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  New Event
-                </button>
+              <button
+                onClick={handleAddEvent}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                New Event
+              </button>
               </div>
             </div>
           </div>
@@ -585,15 +585,15 @@ export default function PropertyTimeline({ propertyId, propertyName }: PropertyT
       {/* Add/Edit Event Form */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <TimelineEventForm
-            editingEvent={editingEvent}
-            initialValues={newEvent}
-            onSubmit={handleSubmitEvent}
-            onCancel={() => setShowAddForm(false)}
-          />
+            <TimelineEventForm
+              editingEvent={editingEvent}
+              initialValues={newEvent}
+              onSubmit={handleSubmitEvent}
+              onCancel={() => setShowAddForm(false)}
+            />
         </div>
       )}
-
+      
       {/* Sync Timeline Dialog */}
       {showSyncDialog && (
         <SyncTimelineDialog

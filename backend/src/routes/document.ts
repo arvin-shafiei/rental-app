@@ -15,18 +15,20 @@ const documentController = new DocumentController();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // limit file size to 10MB
+    fileSize: 25 * 1024 * 1024, // increased limit to 25MB
   },
   fileFilter: (_req, file, callback) => {
     // Accept document files
-    const filetypes = /pdf|doc|docx|xls|xlsx|txt|csv|ppt|pptx/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    // const filetypes = /pdf|doc|docx|xls|xlsx|txt|csv|ppt|pptx/;
+    // const mimetype = filetypes.test(file.mimetype);
+    // const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     
-    if (mimetype && extname) {
-      return callback(null, true);
-    }
-    callback(new Error("Only document files are allowed!"));
+    // if (mimetype && extname) {
+    //   return callback(null, true);
+    // }
+    // callback(new Error("Only document files are allowed!"));
+
+    callback(null, true);
   }
 });
 

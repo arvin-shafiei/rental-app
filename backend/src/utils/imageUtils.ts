@@ -551,4 +551,73 @@ export async function fetchRoomMediaImages(imageIds: string[], propertyId: strin
     logger.error(`Error in fetchRoomMediaImages: ${error.message}`);
     return [];
   }
+}
+
+/**
+ * Compress image or video based on its size and type
+ * @param fileBuffer Original file buffer
+ * @param originalSize Original file size in bytes
+ * @param filename Original filename to determine file type
+ * @param maxSize Maximum allowed size in bytes
+ * @returns Compressed file buffer
+ */
+export async function compressFileIfNeeded(
+  fileBuffer: Buffer,
+  originalSize: number,
+  filename: string,
+  maxSize: number = 25 * 1024 * 1024
+): Promise<Buffer> {
+  logger.methodStart('compressFileIfNeeded', {
+    originalSize,
+    filename,
+    maxSize
+  });
+  
+  // If file is under the size limit, no need to compress
+  if (originalSize <= maxSize) {
+    logger.info('File is under size limit, no compression needed');
+    return fileBuffer;
+  }
+  
+  // Get file extension to determine file type
+  const ext = path.extname(filename).toLowerCase();
+  const isVideo = /\.(mp4|mov|avi|webm)$/i.test(ext);
+  
+  if (isVideo) {
+    // For videos, we simply return the original for now as video compression
+    // requires more complex tools like ffmpeg which should be added as a service
+    logger.info('Video compression not implemented yet, returning original file');
+    return fileBuffer;
+  } else {
+    // For images, use sharp to compress
+    logger.info('Compressing image file');
+    
+    // Calculate compression quality based on how much we need to reduce the file
+    const sizeRatio = originalSize / maxSize;
+    let quality = 80; // Default quality
+    
+    if (sizeRatio > 4) {
+      quality = 30; // Very aggressive compression for very large files
+    } else if (sizeRatio > 2) {
+      quality = 50; // Medium compression
+    } else {
+      quality = 70; // Light compression
+    }
+    
+    logger.info(`Compressing with quality: ${quality}`);
+    
+    try {
+      // Use sharp to resize and compress
+      const compressedBuffer = await sharp(fileBuffer)
+        .webp({ quality }) // Convert to webp format with specified quality
+        .toBuffer();
+      
+      logger.info(`Compression successful. Original: ${originalSize} bytes, Compressed: ${compressedBuffer.length} bytes, Ratio: ${Math.round((compressedBuffer.length / originalSize) * 100)}%`);
+      return compressedBuffer;
+    } catch (error) {
+      logger.error(`Image compression failed: ${error}`);
+      // Return original if compression fails
+      return fileBuffer;
+    }
+  }
 } 

@@ -140,7 +140,7 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
   }
 
   return (
-    <div>
+      <div>
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-medium text-gray-900">People</h2>
         
@@ -163,13 +163,13 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
         )}
       </div>
         
-      {error && (
+        {error && (
         <div className="bg-red-50 text-red-700 p-2 mb-3 rounded-md text-sm">
           <AlertCircle className="h-4 w-4 inline mr-1" />
           {error}
-        </div>
-      )}
-      
+          </div>
+        )}
+        
       {/* Add New Person Section */}
       {showAddTenant && isCurrentUserOwner && (
         <div className="mb-4">
@@ -245,7 +245,7 @@ export default function PropertyTenants({ propertyId, currentUserId }: PropertyT
               Add someone
             </button>
           )}
-        </div>
+      </div>
       )}
     </div>
   );

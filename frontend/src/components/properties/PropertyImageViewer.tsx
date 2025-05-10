@@ -140,6 +140,10 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     );
   }
 
+  // Split rooms into single-item and multi-item collections
+  const singleItemRooms = rooms.filter(room => room.images.length === 1);
+  const multiItemRooms = rooms.filter(room => room.images.length > 1);
+
   return (
     <div>
       {/* Media Modal */}
@@ -168,35 +172,139 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <img 
+            <img 
                 src={selectedMedia} 
-                alt="Full size" 
+              alt="Full size" 
                 className="max-h-screen max-w-full object-contain" 
-                onClick={(e) => e.stopPropagation()}
-              />
+              onClick={(e) => e.stopPropagation()}
+            />
             )}
           </div>
         </div>
       )}
 
-      <div className="space-y-8">
-        {rooms.map((room) => (
-          <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <div className="flex items-center">
-                <Home className="h-4 w-4 mr-2 text-blue-600" />
-                <h3 className="text-md font-medium text-gray-800">
-                  {formatRoomName(room.roomName)}
-                </h3>
+      {/* Single Item Rooms - Displayed side by side */}
+      {singleItemRooms.length > 0 && (
+        <div className="mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {singleItemRooms.map((room) => (
+              <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm h-full flex flex-col">
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <div className="flex items-center">
+                    <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
+                    <h3 className="text-sm font-medium text-gray-800">
+                      {formatRoomName(room.roomName)}
+          </h3>
+                  </div>
+                </div>
+                
+                <div className="p-2 flex-grow">
+                  {room.images.map((media, imgIndex) => (
+                    <div 
+                      key={imgIndex} 
+                      className="relative rounded-md overflow-hidden bg-gray-100 aspect-square cursor-pointer hover:opacity-95 transition-opacity h-full"
+                      onClick={() => openMediaModal(media.url, media.type === 'video')}
+                    >
+                      {/* Delete button */}
+                      <button
+                        className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-20 opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-red-600 transition-all"
+                        onClick={(e) => handleDeleteMedia(e, media.path)}
+                        disabled={isDeleting}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                      
+                      {/* Video indicator */}
+                      {media.type === 'video' && (
+                        <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-10">
+                          <Camera className="h-3.5 w-3.5" />
+                        </div>
+                      )}
+                      
+                      {/* Loading state */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                        <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                      </div>
+                      
+                      {/* Media preview */}
+                      {media.type === 'video' ? (
+                        <video 
+                          src={media.url}
+                          className="absolute inset-0 w-full h-full object-cover z-20"
+                          onLoadedData={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            const container = video.closest('div.relative');
+                            if (container) {
+                              const spinner = container.querySelector('div.absolute');
+                              if (spinner instanceof HTMLElement) {
+                                spinner.style.display = 'none';
+                              }
+                            }
+                          }}
+                        />
+                      ) : (
+                        <img 
+                          src={media.url}
+                          alt={`${room.roomName} ${imgIndex + 1}`}
+                          className="absolute inset-0 w-full h-full object-cover z-20"
+                          onLoad={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            const container = img.closest('div.relative');
+                            if (container) {
+                              const spinner = container.querySelector('div.absolute');
+                              if (spinner instanceof HTMLElement) {
+                                spinner.style.display = 'none';
+                              }
+                            }
+                          }}
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.style.display = 'none';
+                            
+                            const container = img.closest('div.relative');
+                            if (container) {
+                              const spinner = container.querySelector('div.absolute');
+                              if (spinner instanceof HTMLElement) {
+                                spinner.innerHTML = '<div class="p-2 text-red-500 text-xs text-center">Failed to load</div>';
+                              }
+                            }
+                          }}
+                        />
+                      )}
+                        
+                      {/* Play button for videos */}
+                      {media.type === 'video' && (
+                        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                          <div className="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                            <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-white border-b-8 border-b-transparent ml-1"></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Item Rooms - Stacked view */}
+      {multiItemRooms.length > 0 && (
+        <div className="space-y-6">
+          {multiItemRooms.map((room) => (
+            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center">
+                  <Home className="h-4 w-4 mr-2 text-blue-600" />
+                  <h3 className="text-md font-medium text-gray-800">
+                    {formatRoomName(room.roomName)}
+                  </h3>
+                </div>
+              </div>
             
-            {!room.images || room.images.length === 0 ? (
-              <div className="p-4 text-center text-gray-500 italic text-sm">
-                No media in this room
-              </div>
-            ) : (
-              <div className={`p-4 grid grid-cols-1 ${room.images.length === 1 ? 'sm:grid-cols-1' : 'sm:grid-cols-2'} md:grid-cols-3 lg:grid-cols-4 gap-4`}>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {room.images.map((media, imgIndex) => (
                   <div 
                     key={imgIndex} 
@@ -221,10 +329,10 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                     )}
                     
                     {/* Loading state */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                      <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
-                    </div>
-                    
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                        <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                      </div>
+                      
                     {/* Media preview */}
                     {media.type === 'video' ? (
                       <video 
@@ -270,7 +378,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                         }}
                       />
                     )}
-                    
+                      
                     {/* Play button for videos */}
                     {media.type === 'video' && (
                       <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
@@ -282,10 +390,10 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 } 

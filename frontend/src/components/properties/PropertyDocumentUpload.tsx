@@ -1,30 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import { FileUp, Loader2, File, X, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PropertyDocumentUploadProps {
   propertyId: string;
+  onDocumentUploaded?: () => void;
 }
 
 // List of common document types
 const documentTypes = [
-  "Lease Agreement",
-  "Contract",
+  "Rental Contract",
   "Inspection Report",
   "Maintenance Record",
   "Invoice",
   "Receipt",
   "Notice",
   "Communication",
-  "Rental Application",
   "Other"
 ];
 
-export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentUploadProps) {
+export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded }: PropertyDocumentUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any | null>(null);
-  const [documentType, setDocumentType] = useState<string>('');
+  const [documentType, setDocumentType] = useState<string>('rental-contract');
   const [customType, setCustomType] = useState<string>('');
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState<boolean>(false);
@@ -61,14 +61,13 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
     }
   };
 
-  // Handle document type input
-  const handleDocumentTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
+  // Handle document type selection
+  const handleDocumentTypeChange = (value: string) => {
     setDocumentType(value);
     setError(null);
     
     // Clear custom type if a pre-defined type is selected
-    if (value !== 'custom') {
+    if (value !== 'other') {
       setCustomType('');
     }
     
@@ -133,7 +132,7 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
 
   // Get the final document type (either from dropdown or custom input)
   const getFinalDocumentType = (): string => {
-    if (documentType === 'custom' && customType.trim()) {
+    if (documentType === 'other' && customType.trim()) {
       return customType.trim();
     }
     return documentType;
@@ -189,6 +188,11 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
         }
         setSelectedFile(null);
         
+        // Notify parent component about successful upload to refresh document list
+        if (onDocumentUploaded) {
+          onDocumentUploaded();
+        }
+        
         // Auto-hide success message after 3 seconds
         setTimeout(() => {
           setShowSuccess(false);
@@ -218,7 +222,7 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
   };
 
   return (
-    <div className="pt-2">
+    <div className="pt-2 mb-12">
       <div className="flex items-center mb-4">
         <FileUp className="w-5 h-5 mr-2 text-blue-600" />
         <h3 className="text-lg font-semibold text-gray-700">Property Documents</h3>
@@ -230,35 +234,40 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
           <label htmlFor="document-type" className="block text-sm font-medium text-gray-700 mb-1.5">
             Document Type <span className="text-red-500">*</span>
           </label>
-          <select
-            id="document-type"
+          <Select
             value={documentType}
-            onChange={handleDocumentTypeChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+            onValueChange={handleDocumentTypeChange}
             disabled={isUploading}
-            required
+            defaultValue="rental-contract"
           >
-            <option value="">Select document type...</option>
-            {documentTypes.map((type) => (
-              <option key={type} value={type.toLowerCase().replace(/ /g, '-')}>
-                {type}
-              </option>
-            ))}
-            <option value="custom">Custom...</option>
-          </select>
+            <SelectTrigger className="w-full bg-white text-gray-900">
+              <SelectValue placeholder="Select document type..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white border-gray-200">
+              {documentTypes.map((type) => (
+                <SelectItem 
+                  key={type} 
+                  value={type.toLowerCase().replace(/ /g, '-')}
+                  className="text-gray-900"
+                >
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           
-          {documentType === 'custom' && (
+          {documentType === 'other' && (
             <div className="mt-2">
               <label htmlFor="custom-type" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Custom Document Type <span className="text-red-500">*</span>
+                Specify Document Type <span className="text-red-500">*</span>
               </label>
               <input
                 id="custom-type"
                 type="text"
                 value={customType}
                 onChange={handleCustomTypeChange}
-                placeholder="Enter custom document type"
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                placeholder="Describe your document (e.g., Utility Bill, Contract Amendment)"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                 disabled={isUploading}
               />
             </div>
@@ -283,8 +292,8 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-        >
-          {isUploading ? (
+          >
+            {isUploading ? (
             <div className="flex flex-col items-center">
               <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
               <p className="text-gray-600">Uploading document...</p>
@@ -294,19 +303,19 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
               <File className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-400">Please select a document type first</p>
             </div>
-          ) : (
-            <>
+            ) : (
+              <>
               <div className="flex items-center justify-center mb-2">
                 <File className="w-8 h-8 text-gray-400" />
               </div>
               <p className="text-gray-500 text-center mb-2">
-                Drag & drop your document here, or click to select
+                Drag & drop any file here, or click to select
               </p>
               <p className="text-xs text-gray-400 italic">
-                File will be uploaded automatically when selected
+                All file types supported. File will be uploaded automatically when selected.
               </p>
-            </>
-          )}
+              </>
+            )}
         </div>
         
         {/* Hidden file input */}
@@ -315,7 +324,7 @@ export default function PropertyDocumentUpload({ propertyId }: PropertyDocumentU
           ref={fileInputRef}
           onChange={handleFileChange}
           className="hidden"
-          accept=".pdf,.doc,.docx,.txt,.xlsx,.xls,.csv,.ppt,.pptx,.jpg,.jpeg,.png"
+          accept="*/*"
           disabled={isUploading || !getFinalDocumentType()}
         />
       </div>

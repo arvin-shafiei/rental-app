@@ -28,6 +28,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [documentRefreshCounter, setDocumentRefreshCounter] = useState(0);
 
   // Get the current user ID using the same approach as dashboard/page.tsx
   useEffect(() => {
@@ -128,6 +129,11 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
     }
   };
 
+  // Function to trigger document list refresh
+  const handleDocumentUploaded = () => {
+    setDocumentRefreshCounter(prev => prev + 1);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -216,36 +222,36 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               <TabsTrigger 
                 value="images" 
                 className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
-              >
-                Images
+            >
+              Deposit Protection
               </TabsTrigger>
               <TabsTrigger 
                 value="documents" 
                 className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
-              >
-                Documents
+            >
+              Documents
               </TabsTrigger>
               <TabsTrigger 
                 value="timeline" 
                 className="rounded-full px-3 py-1.5 text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
-              >
-                Timeline
+            >
+              Timeline
               </TabsTrigger>
             </TabsList>
-          </div>
-
+        </div>
+        
           <Card className="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <TabsContent value="overview" className="p-6 focus:outline-none">
               <div className="space-y-10">
-                <PropertyDetails 
-                  property={property}
-                  isEditing={isEditing}
-                  formData={formData}
-                  isSaving={isSaving}
-                  handleChange={handleChange}
-                  handleSubmit={handleSubmit}
-                  setIsEditing={setIsEditing}
-                />
+            <PropertyDetails 
+              property={property}
+              isEditing={isEditing}
+              formData={formData}
+              isSaving={isSaving}
+              handleChange={handleChange}
+              handleSubmit={handleSubmit}
+              setIsEditing={setIsEditing}
+            />
                 
                 <div className="mt-8 border-t border-gray-200 pt-8">
                   <PropertyTenants 
@@ -260,14 +266,20 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               <PropertyImageUpload propertyId={property.id} />
               <PropertyImageViewer propertyId={property.id} />
             </TabsContent>
-            
+          
             <TabsContent value="documents" className="p-6 focus:outline-none">
-              <PropertyDocumentUpload propertyId={property.id} />
-              <PropertyDocumentViewer propertyId={property.id} />
+              <PropertyDocumentUpload 
+                propertyId={property.id} 
+                onDocumentUploaded={handleDocumentUploaded}
+              />
+              <PropertyDocumentViewer 
+                propertyId={property.id} 
+                key={`document-viewer-${documentRefreshCounter}`}
+              />
             </TabsContent>
-            
+          
             <TabsContent value="timeline" className="p-6 focus:outline-none">
-              <PropertyTimeline propertyId={property.id} propertyName={property.name} />
+            <PropertyTimeline propertyId={property.id} propertyName={property.name} />
             </TabsContent>
           </Card>
         </Tabs>

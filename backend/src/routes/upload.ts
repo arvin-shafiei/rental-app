@@ -15,18 +15,18 @@ const uploadController = new UploadController();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024, // limit file size to 5MB
+    fileSize: 100 * 1024 * 1024, // limit file size to 100MB
   },
   fileFilter: (_req, file, callback) => {
-    // Accept only image files
-    const filetypes = /jpeg|jpg|png|gif|webp/;
+    // Accept only image files and videos
+    const filetypes = /jpeg|jpg|png|gif|webp|mp4|mov|avi|webm/;
     const mimetype = filetypes.test(file.mimetype);
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     
     if (mimetype && extname) {
       return callback(null, true);
     }
-    callback(new Error("Only image files are allowed!"));
+    callback(new Error("Only image and video files are allowed!"));
   }
 });
 

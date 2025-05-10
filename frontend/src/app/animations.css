@@ -13,7 +13,7 @@
 
 .group:hover .group-hover\:pause-animation {
   animation-play-state: paused;
-}
+} 
 
 @keyframes slideInUp {
   from {

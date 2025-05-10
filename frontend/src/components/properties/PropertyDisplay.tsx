@@ -24,11 +24,11 @@ export default function PropertyDisplay({ property }: PropertyDisplayProps) {
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-8">
         <div className="flex items-start gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm">
-            {property.emoji ? (
+          {property.emoji ? (
               <span className="text-3xl">{property.emoji}</span>
-            ) : (
+          ) : (
               <Home className="h-8 w-8 text-blue-600" />
-            )}
+          )}
           </div>
           
           <div className="space-y-1">
@@ -36,17 +36,17 @@ export default function PropertyDisplay({ property }: PropertyDisplayProps) {
             <div className="flex items-center text-gray-600">
               <MapPin className="mr-1 h-4 w-4" />
               <p className="text-sm">
-                {[
-                  property.address_line1,
-                  property.address_line2,
-                  property.city,
-                  property.county,
-                  property.postcode,
-                  property.country
-                ].filter(Boolean).join(', ')}
-              </p>
-            </div>
+              {[
+                property.address_line1,
+                property.address_line2,
+                property.city,
+                property.county,
+                property.postcode,
+                property.country
+              ].filter(Boolean).join(', ')}
+            </p>
           </div>
+        </div>
         </div>
       </div>
 
@@ -59,7 +59,7 @@ export default function PropertyDisplay({ property }: PropertyDisplayProps) {
           </div>
           <h3 className="mb-2 text-lg font-medium text-gray-900">Financial Details</h3>
           <div className="space-y-2">
-            <div>
+        <div>
               <p className="text-sm text-gray-500">Monthly Rent</p>
               <p className="font-semibold text-gray-900">
                 {property.rent_amount 
@@ -103,14 +103,14 @@ export default function PropertyDisplay({ property }: PropertyDisplayProps) {
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
               <Landmark className="h-6 w-6 text-amber-600" />
-            </div>
-            <div>
+          </div>
+          <div>
               <h3 className="text-lg font-medium text-gray-900">Landlord Contact</h3>
               <p className="text-gray-600">{property.landlord_email}</p>
             </div>
           </div>
         </div>
       )}
-    </div>
+      </div>
   );
 } 

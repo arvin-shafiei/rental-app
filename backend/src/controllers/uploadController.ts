@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UploadService } from '../services/uploadService';
 import { BaseController } from '../utils/controllerUtils';
 import { Logger } from '../utils/loggerUtils';
+import * as imageUtils from '../utils/imageUtils';
 
 export class UploadController extends BaseController {
   private uploadService: UploadService;
@@ -38,9 +39,17 @@ export class UploadController extends BaseController {
       
       this.logger.info(`Uploading image for property: ${propertyId}, room: ${roomName || 'unspecified'}`);
       
+      // Compress file if needed before uploading
+      const compressedBuffer = await imageUtils.compressFileIfNeeded(
+        req.file.buffer,
+        req.file.size,
+        req.file.originalname,
+        100 * 1024 * 1024 // 100MB limit
+      );
+      
       // Upload to Supabase storage - pass original filename to preserve extension
       const supabasePath = await this.uploadService.uploadToSupabase(
-        req.file.buffer, 
+        compressedBuffer, 
         userId, 
         propertyId, 
         roomName, 
@@ -50,16 +59,13 @@ export class UploadController extends BaseController {
       // Get a public URL for the uploaded file
       const publicUrl = this.uploadService.getPublicUrl(supabasePath);
       
-      const imageData = {
-        filename: supabasePath.split('/').pop(),
-        path: supabasePath,
-        propertyId,
-        roomName: roomName || 'unspecified',
-        url: publicUrl
-      };
-      
       this.logger.info(`Image uploaded successfully at path: ${supabasePath}`);
-      this.sendSuccess(res, 'Image uploaded successfully', imageData);
+      this.sendSuccess(res, 'Image uploaded successfully', {
+        path: supabasePath,
+        url: publicUrl,
+        propertyId,
+        roomName: roomName || 'unspecified'
+      });
     } catch (error: any) {
       this.logger.methodError('uploadImage', error);
       this.sendError(res, 'Error uploading image', 500, error);
@@ -94,30 +100,46 @@ export class UploadController extends BaseController {
       // Process all uploaded files
       const uploadedFiles = await Promise.all(
         (req.files as Express.Multer.File[]).map(async (file) => {
-          // Upload to Supabase storage - pass original filename to preserve extension
-          const supabasePath = await this.uploadService.uploadToSupabase(
-            file.buffer, 
-            userId, 
-            propertyId, 
-            roomName, 
-            file.originalname
-          );
+          try {
+            // Compress file if needed before uploading
+            const compressedBuffer = await imageUtils.compressFileIfNeeded(
+              file.buffer,
+              file.size,
+              file.originalname,
+              100 * 1024 * 1024 // 100MB limit
+            );
           
-          // Get a public URL for the uploaded file
-          const publicUrl = this.uploadService.getPublicUrl(supabasePath);
-          
-          return {
-            filename: supabasePath.split('/').pop(),
-            path: supabasePath,
-            propertyId,
-            roomName: roomName || 'unspecified',
-            url: publicUrl
-          };
+            // Upload to Supabase storage - pass original filename to preserve extension
+            const supabasePath = await this.uploadService.uploadToSupabase(
+              compressedBuffer, 
+              userId, 
+              propertyId, 
+              roomName, 
+              file.originalname
+            );
+            
+            // Get a public URL for the uploaded file
+            const publicUrl = this.uploadService.getPublicUrl(supabasePath);
+            
+            return {
+              filename: supabasePath.split('/').pop(),
+              path: supabasePath,
+              propertyId,
+              roomName: roomName || 'unspecified',
+              url: publicUrl
+            };
+          } catch (error) {
+            this.logger.error(`Error processing file ${file.originalname}: ${error}`);
+            return null;
+          }
         })
       );
       
-      this.logger.info(`Successfully uploaded ${uploadedFiles.length} images`);
-      this.sendSuccess(res, 'Images uploaded successfully', { files: uploadedFiles });
+      // Filter out any failed uploads
+      const successfulUploads = uploadedFiles.filter(Boolean);
+      
+      this.logger.info(`Successfully uploaded ${successfulUploads.length} images`);
+      this.sendSuccess(res, 'Images uploaded successfully', { files: successfulUploads });
     } catch (error: any) {
       this.logger.methodError('uploadMultipleImages', error);
       this.sendError(res, 'Error uploading images', 500, error);

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2, Camera, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Loader2, Camera, X, Image as ImageIcon, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PropertyImageUploadProps {
   propertyId: string;
@@ -17,8 +19,7 @@ const roomOptions = [
   "Office",
   "Garden",
   "Balcony",
-  "Exterior",
-  "Other"
+  "Exterior"
 ];
 
 export default function PropertyImageUpload({ propertyId }: PropertyImageUploadProps) {
@@ -100,12 +101,11 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   };
 
   // Handle room selection
-  const handleRoomChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
+  const handleRoomChange = (value: string) => {
     setRoomName(value);
     
     // Clear custom room if a pre-defined room is selected
-    if (value !== 'custom') {
+    if (value !== 'other') {
       setCustomRoom('');
     }
   };
@@ -131,7 +131,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
 
   // Get the final room name (either from dropdown or custom input)
   const getFinalRoomName = (): string => {
-    if (roomName === 'custom' && customRoom.trim()) {
+    if (roomName === 'other' && customRoom.trim()) {
       return customRoom.trim();
     }
     return roomName;
@@ -205,11 +205,20 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   };
 
   return (
-    <div className="pt-2">
-      <div className="flex items-center mb-4">
-        <Upload className="w-5 h-5 mr-2 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-700">Add Media</h3>
+    <div className="pt-2 mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <Upload className="w-5 h-5 mr-2 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-700">Document Property Condition</h3>
+        </div>
       </div>
+      
+      <Alert className="mb-6 bg-blue-50 text-blue-800 border-blue-200">
+        <Info className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          Record the current condition of your property with photos and videos. This evidence creates a visual inventory that helps protect your security deposit by documenting the original state of each room.
+        </AlertDescription>
+      </Alert>
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         {/* Room selection */}
@@ -217,34 +226,42 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
           <label htmlFor="room-select" className="block text-sm font-medium text-gray-700 mb-1.5">
             Choose a Room
           </label>
-          <select
-            id="room-select"
+          <Select
             value={roomName}
-            onChange={handleRoomChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+            onValueChange={handleRoomChange}
             disabled={isUploading}
           >
-            <option value="">Select room...</option>
-            {roomOptions.map((room) => (
-              <option key={room} value={room.toLowerCase().replace(' ', '-')}>
-                {room}
-              </option>
-            ))}
-            <option value="custom">Custom...</option>
-          </select>
+            <SelectTrigger className="w-full font-medium">
+              <SelectValue 
+                placeholder="Select a room..." 
+                className="text-gray-900"
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {roomOptions.map((room) => (
+                <SelectItem 
+                  key={room} 
+                  value={room.toLowerCase().replace(' ', '-')}
+                >
+                  {room}
+                </SelectItem>
+              ))}
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
           
-          {roomName === 'custom' && (
+          {roomName === 'other' && (
             <div className="mt-2">
               <label htmlFor="custom-room" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Custom Room Name
+                Other Room Name
               </label>
               <input
                 id="custom-room"
                 type="text"
                 value={customRoom}
                 onChange={handleCustomRoomChange}
-                placeholder="Enter custom room name"
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                placeholder="Enter room name"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                 disabled={isUploading}
               />
             </div>
@@ -318,7 +335,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
                     src={previewUrl || ''}
                     controls
                     className="max-h-64 max-w-full object-contain"
-                  />
+          />
                 ) : (
                   <img 
                     src={previewUrl || ''} 
@@ -384,6 +401,8 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
           <p>Successfully uploaded to <strong>{uploadResult?.data?.roomName.replace(/-/g, ' ')}</strong></p>
         </div>
       )}
+      
+      <div className="h-6"></div> {/* Extra spacing to separate upload section from content below */}
     </div>
   );
 } 

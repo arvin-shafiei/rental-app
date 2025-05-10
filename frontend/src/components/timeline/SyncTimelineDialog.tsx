@@ -139,7 +139,7 @@ export default function SyncTimelineDialog({
               </p>
             )}
           </div>
-          
+
           {/* Rent Due Dates */}
           <div>
             <div className="flex items-center mb-2">
@@ -154,28 +154,28 @@ export default function SyncTimelineDialog({
                 Generate Monthly Rent Due Dates
               </label>
             </div>
-            
+
             {generateRentDueDates && (
               <div className="ml-6 space-y-3 mt-3 bg-gray-50 p-3 rounded-md border border-gray-200">                
                 <div>
                   <div className="flex items-center mb-2">
-                    <input
-                      type="checkbox"
+            <input
+              type="checkbox"
                       id="has-upfront-rent"
-                      checked={hasUpfrontRent}
-                      onChange={(e) => setHasUpfrontRent(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
+              checked={hasUpfrontRent}
+              onChange={(e) => setHasUpfrontRent(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
                     <label htmlFor="has-upfront-rent" className="ml-2 block text-sm text-black">
                       I've paid rent upfront
-                    </label>
-                  </div>
-                  
-                  {hasUpfrontRent && (
+            </label>
+          </div>
+
+          {hasUpfrontRent && (
                     <div className="ml-6 mt-2">
                       <label htmlFor="upfront-months" className="block text-sm text-black mb-1">
                         Number of Months Paid Upfront
-                      </label>
+              </label>
                       <input
                         type="number"
                         id="upfront-months"

@@ -15,29 +15,29 @@ export default function PropertyDocumentViewer({ propertyId }: PropertyDocumentV
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{show: boolean; path: string; name: string} | null>(null);
   
   const fetchPropertyDocuments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('Fetching property documents for property:', propertyId);
-      const result = await getPropertyDocuments(propertyId);
-      console.log('Property documents API response:', result);
-      
-      if (result.success && result.data) {
-        // Sort document types alphabetically
-        const sortedDocTypes = [...result.data].sort((a, b) => 
-          a.documentType.localeCompare(b.documentType)
-        );
-        setDocumentTypes(sortedDocTypes);
-      } else {
-        setError('Failed to load property documents');
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching property documents for property:', propertyId);
+        const result = await getPropertyDocuments(propertyId);
+        console.log('Property documents API response:', result);
+        
+        if (result.success && result.data) {
+          // Sort document types alphabetically
+          const sortedDocTypes = [...result.data].sort((a, b) => 
+            a.documentType.localeCompare(b.documentType)
+          );
+          setDocumentTypes(sortedDocTypes);
+        } else {
+          setError('Failed to load property documents');
+        }
+      } catch (error) {
+        console.error('Error fetching property documents:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load property documents');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching property documents:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load property documents');
-    } finally {
-      setLoading(false);
-    }
   };
 
   useEffect(() => {
@@ -219,10 +219,10 @@ export default function PropertyDocumentViewer({ propertyId }: PropertyDocumentV
         <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
             <div className="flex items-center">
-              <Folder className="h-5 w-5 mr-2 text-blue-600" />
+            <Folder className="h-5 w-5 mr-2 text-blue-600" />
               <h3 className="text-md font-medium text-gray-800">
                 {formatDocumentType(docType.documentType)}
-              </h3>
+          </h3>
             </div>
           </div>
           
@@ -232,68 +232,68 @@ export default function PropertyDocumentViewer({ propertyId }: PropertyDocumentV
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {docType.documents.map((document: any, docIndex: number) => {
-                const filename = document.filename;
-                
-                return (
+                {docType.documents.map((document: any, docIndex: number) => {
+                  const filename = document.filename;
+                  
+                  return (
                   <div 
-                    key={docIndex}
+                      key={docIndex}
                     className="p-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center min-w-0 gap-x-4">
-                        {getFileIcon(filename)}
-                        <div className="min-w-0 flex-auto">
-                          <p className="text-sm font-semibold leading-6 text-gray-900 truncate">
-                            {filename}
-                          </p>
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center min-w-0 gap-x-4">
+                          {getFileIcon(filename)}
+                          <div className="min-w-0 flex-auto">
+                            <p className="text-sm font-semibold leading-6 text-gray-900 truncate">
+                              {filename}
+                            </p>
                           <p className="mt-1 flex flex-wrap items-center text-xs leading-5 text-gray-500">
-                            {document.metadata && (
+                              {document.metadata && (
                               <span className="mr-3">{formatFileSize(document.metadata.size)}</span>
-                            )}
-                            {document.created_at && (
+                              )}
+                              {document.created_at && (
                               <span className="flex items-center">
                                 <span className="h-1 w-1 rounded-full bg-gray-400 mr-1.5"></span>
-                                Uploaded on {new Date(document.created_at).toLocaleDateString()}
-                              </span>
-                            )}
-                          </p>
+                                  Uploaded on {new Date(document.created_at).toLocaleDateString()}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      <div className="flex items-center space-x-2">
+                          <a
+                            href={document.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-blue-600 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
+                            title="View Document"
+                          >
+                            <ExternalLink className="h-5 w-5" />
+                            <span className="sr-only">View</span>
+                          </a>
+                          <a
+                            href={document.url}
+                            download={filename}
+                          className="text-gray-400 hover:text-green-600 p-1.5 rounded-full hover:bg-green-50 transition-colors"
+                            title="Download Document"
+                          >
+                            <Download className="h-5 w-5" />
+                            <span className="sr-only">Download</span>
+                          </a>
+                          <button
+                          onClick={() => handleDeleteClick(document.path, filename)}
+                            disabled={isDeleting}
+                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                            title="Delete Document"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                            <span className="sr-only">Delete</span>
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <a
-                          href={document.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-400 hover:text-blue-600 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
-                          title="View Document"
-                        >
-                          <ExternalLink className="h-5 w-5" />
-                          <span className="sr-only">View</span>
-                        </a>
-                        <a
-                          href={document.url}
-                          download={filename}
-                          className="text-gray-400 hover:text-green-600 p-1.5 rounded-full hover:bg-green-50 transition-colors"
-                          title="Download Document"
-                        >
-                          <Download className="h-5 w-5" />
-                          <span className="sr-only">Download</span>
-                        </a>
-                        <button
-                          onClick={() => handleDeleteClick(document.path, filename)}
-                          disabled={isDeleting}
-                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
-                          title="Delete Document"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                          <span className="sr-only">Delete</span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>
