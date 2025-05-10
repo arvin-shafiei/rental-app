@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Loader2, Trash } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Trash, AlertCircle } from 'lucide-react';
 import { getProperty, deleteProperty, updateProperty } from '@/lib/api';
 import { supabase } from '@/lib/supabase/client';
 import PropertyTimeline from '@/components/timeline/PropertyTimeline';
@@ -14,6 +14,7 @@ import PropertyDocumentUpload from '@/components/properties/PropertyDocumentUplo
 import PropertyDocumentViewer from '@/components/properties/PropertyDocumentViewer';
 import PropertyTenants from '@/components/properties/PropertyTenants';
 import type { Property } from '@/components/properties/PropertyDetails';
+import Modal from '@/components/ui/modal';
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -29,6 +30,8 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   const [activeTab, setActiveTab] = useState('overview');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [documentRefreshCounter, setDocumentRefreshCounter] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Get the current user ID using the same approach as dashboard/page.tsx
   useEffect(() => {
@@ -73,7 +76,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   }, [params.id]);
 
   const handleDeleteProperty = async () => {
-    if (!confirm('Are you sure you want to delete this property?')) return;
+    setIsDeleting(true);
     
     try {
       await deleteProperty(params.id);
@@ -81,6 +84,9 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
     } catch (err: any) {
       setError(err.message || 'Failed to delete property');
       console.error('Error deleting property:', err);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -187,7 +193,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
         {!isEditing && (
           <div className="flex space-x-2">
             <button
-              onClick={handleDeleteProperty}
+              onClick={() => setShowDeleteModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
             >
               <Trash className="w-4 h-4 mr-2" />
@@ -203,6 +209,47 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
           </div>
         )}
       </div>
+
+      {/* Delete Property Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Property"
+        showCloseButton={false}
+      >
+        <div className="flex items-start space-x-3">
+          <div className="bg-red-100 p-2 rounded-full">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-gray-700 mt-1">
+              This will permanently delete <span className="font-medium">{property?.name}</span>.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              This action cannot be undone. Are you sure you want to continue?
+            </p>
+            
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md text-sm"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm flex items-center"
+                onClick={handleDeleteProperty}
+                disabled={isDeleting}
+              >
+                {isDeleting && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <div className="space-y-6">
         <Tabs
@@ -264,7 +311,9 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             
             <TabsContent value="images" className="p-6 focus:outline-none">
               <PropertyImageUpload propertyId={property.id} />
-              <PropertyImageViewer propertyId={property.id} />
+              <div className="mt-4">
+                <PropertyImageViewer propertyId={property.id} />
+              </div>
             </TabsContent>
           
             <TabsContent value="documents" className="p-6 focus:outline-none">
@@ -279,7 +328,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
             </TabsContent>
           
             <TabsContent value="timeline" className="p-6 focus:outline-none">
-            <PropertyTimeline propertyId={property.id} propertyName={property.name} />
+              <PropertyTimeline propertyId={property.id} propertyName={property.name} />
             </TabsContent>
           </Card>
         </Tabs>

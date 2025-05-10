@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Loader2, Camera, X, Image as ImageIcon, Info } from 'lucide-react';
+import { Upload, Loader2, Camera, X, Image as ImageIcon, Info, Download, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -61,6 +61,13 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
     
     return undefined;
   }, [selectedFile]);
+
+  // Auto-upload when a file is selected and room is chosen
+  useEffect(() => {
+    if (selectedFile && roomName && authToken && !isUploading) {
+      handleUpload();
+    }
+  }, [selectedFile, roomName]);
 
   // Handle file selection from input
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,25 +212,25 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   };
 
   return (
-    <div className="pt-2 mb-12">
-      <div className="flex items-center justify-between mb-4">
+    <div className="pt-1 mb-5">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <Upload className="w-5 h-5 mr-2 text-blue-600" />
           <h3 className="text-lg font-semibold text-gray-700">Document Property Condition</h3>
         </div>
       </div>
       
-      <Alert className="mb-6 bg-blue-50 text-blue-800 border-blue-200">
+      <Alert className="mb-3 bg-blue-50 text-blue-800 border-blue-200 py-2">
         <Info className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
-          Record the current condition of your property with photos and videos. This evidence creates a visual inventory that helps protect your security deposit by documenting the original state of each room.
+        <AlertDescription className="text-blue-800 text-sm">
+          Record the current condition of your property with photos and videos to protect your security deposit.
         </AlertDescription>
       </Alert>
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         {/* Room selection */}
-        <div className="p-4 border-b border-gray-100">
-          <label htmlFor="room-select" className="block text-sm font-medium text-gray-700 mb-1.5">
+        <div className="p-3 border-b border-gray-100">
+          <label htmlFor="room-select" className="block text-sm font-medium text-gray-700 mb-1">
             Choose a Room
           </label>
           <Select
@@ -252,7 +259,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
           
           {roomName === 'other' && (
             <div className="mt-2">
-              <label htmlFor="custom-room" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="custom-room" className="block text-sm font-medium text-gray-700 mb-1">
                 Other Room Name
               </label>
               <input
@@ -271,28 +278,39 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
         {/* Drag & drop area */}
         <div 
           ref={dropAreaRef}
-          className={`p-6 flex flex-col items-center justify-center border-dashed border-2 rounded-md m-4 cursor-pointer transition-colors ${
+          className={`p-4 flex flex-col items-center justify-center border-dashed border-2 rounded-md mx-3 my-3 cursor-pointer transition-colors ${
+            !roomName ? 'border-gray-200 bg-gray-50 cursor-not-allowed' :
             dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
           }`}
-          onClick={activateFileInput}
+          onClick={roomName ? activateFileInput : undefined}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
         >
-          {!selectedFile ? (
+          {!roomName ? (
+            <div className="text-center">
+              <ImageIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-400">Please select a room first</p>
+            </div>
+          ) : isUploading ? (
+            <div className="flex flex-col items-center">
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
+              <p className="text-gray-600">Uploading media...</p>
+            </div>
+          ) : !selectedFile ? (
             <>
               <div className="flex items-center justify-center mb-2">
-                <ImageIcon className="w-8 h-8 text-gray-400 mr-2" />
-                <Camera className="w-8 h-8 text-gray-400" />
+                <ImageIcon className="w-7 h-7 text-gray-400 mr-2" />
+                <Camera className="w-7 h-7 text-gray-400" />
               </div>
               <p className="text-gray-500 text-center mb-2">
                 Drag & drop an image or video here, or click to select
               </p>
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-1">
                 <button
                   type="button" 
-                  className="py-1.5 px-3 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors"
+                  className="py-1 px-3 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     activateFileInput();
@@ -303,7 +321,7 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
                 
                 <button
                   type="button" 
-                  className="py-1.5 px-3 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
+                  className="py-1 px-3 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     activateCamera();
@@ -318,81 +336,79 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
             <div className="w-full">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium text-gray-700">Preview</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReset();
-                  }}
-                  className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (previewUrl) {
+                        const a = document.createElement('a');
+                        a.href = previewUrl;
+                        a.download = selectedFile.name;
+                        a.click();
+                      }
+                    }}
+                    className="p-1 text-blue-500 hover:text-blue-700 rounded-full hover:bg-blue-50 mr-1"
+                    title="Download"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReset();
+                    }}
+                    className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-center overflow-hidden rounded-md max-h-64 bg-gray-50 mt-2">
+              <div className="flex justify-center overflow-hidden rounded-md max-h-48 bg-gray-50 mt-1">
                 {isVideo ? (
                   <video 
                     src={previewUrl || ''}
                     controls
-                    className="max-h-64 max-w-full object-contain"
-          />
+                    className="max-h-48 max-w-full object-contain"
+                  />
                 ) : (
                   <img 
                     src={previewUrl || ''} 
                     alt="Preview" 
-                    className="max-h-64 max-w-full object-contain"
+                    className="max-h-48 max-w-full object-contain"
                   />
                 )}
               </div>
-              <div className="text-sm text-gray-500 mt-2 flex justify-between">
-                <span>{selectedFile.name}</span>
+              <div className="text-xs text-gray-500 mt-1 flex justify-between">
+                <span className="truncate max-w-[70%]">{selectedFile.name}</span>
                 <span>{Math.round(selectedFile.size / 1024)} KB</span>
               </div>
             </div>
           )}
         </div>
-        
-        {/* Hidden file inputs */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          accept="image/*,video/*"
-          disabled={isUploading}
-        />
-        
-        <input
-          type="file"
-          ref={videoRef}
-          onChange={handleFileChange}
-          className="hidden"
-          accept="video/*"
-          capture="environment"
-          disabled={isUploading}
-        />
-        
-        {/* Upload button */}
-        <div className="px-4 py-3 bg-gray-50 flex justify-end">
-          <button
-            onClick={handleUpload}
-            disabled={!selectedFile || !authToken || isUploading || !getFinalRoomName()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload
-              </>
-            )}
-          </button>
-        </div>
       </div>
+      
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*,video/*"
+        disabled={isUploading || !roomName}
+      />
+      
+      <input
+        type="file"
+        ref={videoRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="video/*"
+        capture="environment"
+        disabled={isUploading || !roomName}
+      />
       
       {/* Success message toast */}
       {showSuccess && (
@@ -401,8 +417,6 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
           <p>Successfully uploaded to <strong>{uploadResult?.data?.roomName.replace(/-/g, ' ')}</strong></p>
         </div>
       )}
-      
-      <div className="h-6"></div> {/* Extra spacing to separate upload section from content below */}
     </div>
   );
 } 

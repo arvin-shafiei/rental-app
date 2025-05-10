@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Image, Loader2, Home, X, Trash2, Camera } from 'lucide-react';
+import { Image, Loader2, Home, X, Trash2, Camera, Download, AlertCircle } from 'lucide-react';
 import { getPropertyImages, deletePropertyImage } from '@/lib/api';
+import Modal from '@/components/ui/modal';
 
 interface PropertyImageViewerProps {
   propertyId: string;
@@ -30,6 +31,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, path: string, roomName: string} | null>(null);
   
   const fetchPropertyImages = async () => {
     try {
@@ -84,17 +86,27 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     setSelectedMedia(null);
   };
 
-  const handleDeleteMedia = async (e: React.MouseEvent, imagePath: string) => {
-    e.stopPropagation(); // Prevent modal from opening
+  const openDeleteModal = (e: React.MouseEvent, imagePath: string, roomName: string) => {
+    e.stopPropagation(); // Prevent media modal from opening
+    setDeleteModal({
+      isOpen: true,
+      path: imagePath,
+      roomName
+    });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal || isDeleting) return;
     
-    if (isDeleting) return; // Prevent multiple clicks
-    
-    // Remove confirming dialog for better UX
     try {
       setIsDeleting(true);
       setError(null);
       
-      await deletePropertyImage(propertyId, imagePath);
+      await deletePropertyImage(propertyId, deleteModal.path);
       
       // Refresh the images after deletion
       await fetchPropertyImages();
@@ -104,7 +116,25 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
       setError(error instanceof Error ? error.message : 'Failed to delete image');
     } finally {
       setIsDeleting(false);
+      closeDeleteModal();
     }
+  };
+  
+  const handleDownloadMedia = (e: React.MouseEvent, url: string, roomName: string, index: number) => {
+    e.stopPropagation(); // Prevent modal from opening
+    
+    // Create a temporary link element
+    const a = document.createElement('a');
+    a.href = url;
+    
+    // Set filename based on room name and index
+    const extension = url.split('.').pop() || '';
+    a.download = `${formatRoomName(roomName)}_${index + 1}.${extension}`;
+    
+    // Trigger download
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const formatRoomName = (name: string): string => {
@@ -115,9 +145,9 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-6">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-        <span className="text-gray-600">Loading media...</span>
+      <div className="flex justify-center items-center py-4">
+        <Loader2 className="w-5 h-5 animate-spin text-blue-600 mr-2" />
+        <span className="text-sm text-gray-600">Loading media...</span>
       </div>
     );
   }
@@ -132,99 +162,238 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
 
   if (rooms.length === 0) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-md p-6 text-center">
-        <Image className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No Media</h3>
-        <p className="mt-1 text-sm text-gray-500">Start by uploading images or videos above.</p>
+      <div className="bg-gray-50 border border-gray-200 rounded-md p-5 text-center">
+        <Image className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+        <h3 className="mt-1 text-sm font-medium text-gray-900">No Media</h3>
+        <p className="text-xs text-gray-500">Start by uploading images or videos above.</p>
       </div>
     );
   }
 
-  // Split rooms into single-item and multi-item collections
-  const singleItemRooms = rooms.filter(room => room.images.length === 1);
-  const multiItemRooms = rooms.filter(room => room.images.length > 1);
+  // Filter to rooms with single images for side-by-side layout
+  const singleImageRooms = rooms.filter(room => room.images.length === 1);
+  const multiImageRooms = rooms.filter(room => room.images.length > 1);
 
   return (
     <div>
-      {/* Media Modal */}
-      {selectedMedia && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" 
-          onClick={closeMediaModal}
-        >
-          <div className="relative max-w-4xl max-h-screen">
-            <button 
-              className="absolute top-2 right-2 bg-black bg-opacity-70 rounded-full p-1.5 text-white hover:bg-opacity-100 transition-colors z-10"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeMediaModal();
-              }}
-            >
-              <X className="h-5 w-5" />
-            </button>
-            
-            {isVideo ? (
+      {/* Media Viewer Modal */}
+      <Modal
+        isOpen={!!selectedMedia}
+        onClose={closeMediaModal}
+        showCloseButton={false}
+      >
+        <div className="relative max-w-4xl max-h-screen mx-auto">
+          <button 
+            className="absolute top-2 right-2 bg-black bg-opacity-70 rounded-full p-1.5 text-white hover:bg-opacity-100 transition-colors z-10"
+            onClick={closeMediaModal}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          
+          {selectedMedia && (
+            isVideo ? (
               <video 
                 src={selectedMedia} 
                 controls
                 autoPlay
-                className="max-h-screen max-w-full object-contain" 
-                onClick={(e) => e.stopPropagation()}
+                className="max-h-[80vh] max-w-full object-contain mx-auto" 
               />
             ) : (
-            <img 
+              <img 
                 src={selectedMedia} 
-              alt="Full size" 
-                className="max-h-screen max-w-full object-contain" 
-              onClick={(e) => e.stopPropagation()}
-            />
-            )}
+                alt="Full size" 
+                className="max-h-[80vh] max-w-full object-contain mx-auto" 
+              />
+            )
+          )}
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteModal?.isOpen}
+        onClose={closeDeleteModal}
+        title="Delete Media"
+        showCloseButton={false}
+      >
+        <div className="flex items-start space-x-3">
+          <div className="bg-red-100 p-2 rounded-full">
+            <AlertCircle className="h-5 w-5 text-red-600" />
           </div>
+          <div className="flex-1">
+            <p className="text-sm text-gray-700 mt-1">
+              This will permanently delete this {isVideo ? "video" : "image"} from {deleteModal?.roomName ? formatRoomName(deleteModal.roomName) : ''}.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              This action cannot be undone. Are you sure you want to continue?
+            </p>
+            
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md text-sm"
+                onClick={closeDeleteModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm flex items-center"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting && <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Special layout for rooms with single images - displayed side by side */}
+      {singleImageRooms.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {singleImageRooms.map((room) => (
+            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center">
+                <div className="flex items-center">
+                  <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
+                  <h3 className="text-sm font-medium text-gray-800">
+                    {formatRoomName(room.roomName)}
+                  </h3>
+                </div>
+                
+                {/* Action buttons at room header level */}
+                <div className="flex space-x-1">
+                  <button
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 rounded p-1 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadMedia(e, room.images[0].url, room.roomName, 0);
+                    }}
+                    title="Download"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="bg-red-50 hover:bg-red-100 text-red-600 rounded p-1 transition-colors"
+                    onClick={(e) => openDeleteModal(e, room.images[0].path, room.roomName)}
+                    disabled={isDeleting}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              
+              <div 
+                className="p-2 cursor-pointer"
+                onClick={() => openMediaModal(room.images[0].url, room.images[0].type === 'video')}
+              >
+                <div className="relative rounded-md overflow-hidden bg-gray-100 aspect-video">
+                  {/* Video indicator */}
+                  {room.images[0].type === 'video' && (
+                    <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white rounded-full p-1 z-10">
+                      <Camera className="h-4 w-4" />
+                    </div>
+                  )}
+                  
+                  {/* Loading state */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                    <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                  </div>
+                  
+                  {/* Media preview */}
+                  {room.images[0].type === 'video' ? (
+                    <video 
+                      src={room.images[0].url}
+                      className="w-full h-full object-cover z-20"
+                      onLoadedData={(e) => {
+                        const video = e.target as HTMLVideoElement;
+                        const container = video.closest('div.relative');
+                        if (container) {
+                          const spinner = container.querySelector('div.absolute');
+                          if (spinner instanceof HTMLElement) {
+                            spinner.style.display = 'none';
+                          }
+                        }
+                      }}
+                    />
+                  ) : (
+                    <img 
+                      src={room.images[0].url}
+                      alt={`${room.roomName}`}
+                      className="w-full h-full object-cover z-20"
+                      onLoad={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        const container = img.closest('div.relative');
+                        if (container) {
+                          const spinner = container.querySelector('div.absolute');
+                          if (spinner instanceof HTMLElement) {
+                            spinner.style.display = 'none';
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Single Item Rooms - Displayed side by side */}
-      {singleItemRooms.length > 0 && (
-        <div className="mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {singleItemRooms.map((room) => (
-              <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm h-full flex flex-col">
-                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <div className="flex items-center">
-                    <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
-                    <h3 className="text-sm font-medium text-gray-800">
-                      {formatRoomName(room.roomName)}
-          </h3>
-                  </div>
+      {/* Regular grid layout for rooms with multiple images */}
+      {multiImageRooms.length > 0 && (
+        <div className="space-y-4">
+          {multiImageRooms.map((room) => (
+            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                <div className="flex items-center">
+                  <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
+                  <h3 className="text-sm font-medium text-gray-800">
+                    {formatRoomName(room.roomName)}
+                  </h3>
                 </div>
-                
-                <div className="p-2 flex-grow">
+              </div>
+              
+              <div className="p-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {room.images.map((media, imgIndex) => (
                     <div 
                       key={imgIndex} 
-                      className="relative rounded-md overflow-hidden bg-gray-100 aspect-square cursor-pointer hover:opacity-95 transition-opacity h-full"
+                      className="group relative rounded-md overflow-hidden bg-gray-100 aspect-square cursor-pointer hover:opacity-95 transition-opacity"
                       onClick={() => openMediaModal(media.url, media.type === 'video')}
                     >
-                      {/* Delete button */}
-                      <button
-                        className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-20 opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-red-600 transition-all"
-                        onClick={(e) => handleDeleteMedia(e, media.path)}
-                        disabled={isDeleting}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {/* Always visible media controls with improved visibility */}
+                      <div className="absolute top-0 right-0 p-1 z-20 flex space-x-1 bg-white/60 backdrop-blur-sm rounded-bl-md">
+                        <button
+                          className="bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-1.5 transition-colors"
+                          onClick={(e) => handleDownloadMedia(e, media.url, room.roomName, imgIndex)}
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-1.5 transition-colors"
+                          onClick={(e) => openDeleteModal(e, media.path, room.roomName)}
+                          disabled={isDeleting}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                       
                       {/* Video indicator */}
                       {media.type === 'video' && (
-                        <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-10">
-                          <Camera className="h-3.5 w-3.5" />
+                        <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white rounded-full p-1 z-10">
+                          <Camera className="h-3 w-3" />
                         </div>
                       )}
                       
                       {/* Loading state */}
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                        <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                        <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
                       </div>
                       
                       {/* Media preview */}
@@ -258,137 +427,11 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                               }
                             }
                           }}
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            img.style.display = 'none';
-                            
-                            const container = img.closest('div.relative');
-                            if (container) {
-                              const spinner = container.querySelector('div.absolute');
-                              if (spinner instanceof HTMLElement) {
-                                spinner.innerHTML = '<div class="p-2 text-red-500 text-xs text-center">Failed to load</div>';
-                              }
-                            }
-                          }}
                         />
-                      )}
-                        
-                      {/* Play button for videos */}
-                      {media.type === 'video' && (
-                        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                          <div className="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
-                            <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-white border-b-8 border-b-transparent ml-1"></div>
-                          </div>
-                        </div>
                       )}
                     </div>
                   ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Multi-Item Rooms - Stacked view */}
-      {multiItemRooms.length > 0 && (
-        <div className="space-y-6">
-          {multiItemRooms.map((room) => (
-            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <div className="flex items-center">
-                  <Home className="h-4 w-4 mr-2 text-blue-600" />
-                  <h3 className="text-md font-medium text-gray-800">
-                    {formatRoomName(room.roomName)}
-                  </h3>
-                </div>
-              </div>
-            
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {room.images.map((media, imgIndex) => (
-                  <div 
-                    key={imgIndex} 
-                    className="relative rounded-md overflow-hidden bg-gray-100 aspect-square cursor-pointer hover:opacity-95 transition-opacity"
-                    onClick={() => openMediaModal(media.url, media.type === 'video')}
-                  >
-                    {/* Delete button */}
-                    <button
-                      className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-20 opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-red-600 transition-all"
-                      onClick={(e) => handleDeleteMedia(e, media.path)}
-                      disabled={isDeleting}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    
-                    {/* Video indicator */}
-                    {media.type === 'video' && (
-                      <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 z-10">
-                        <Camera className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                    
-                    {/* Loading state */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                        <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
-                      </div>
-                      
-                    {/* Media preview */}
-                    {media.type === 'video' ? (
-                      <video 
-                        src={media.url}
-                        className="absolute inset-0 w-full h-full object-cover z-20"
-                        onLoadedData={(e) => {
-                          const video = e.target as HTMLVideoElement;
-                          const container = video.closest('div.relative');
-                          if (container) {
-                            const spinner = container.querySelector('div.absolute');
-                            if (spinner instanceof HTMLElement) {
-                              spinner.style.display = 'none';
-                            }
-                          }
-                        }}
-                      />
-                    ) : (
-                      <img 
-                        src={media.url}
-                        alt={`${room.roomName} ${imgIndex + 1}`}
-                        className="absolute inset-0 w-full h-full object-cover z-20"
-                        onLoad={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          const container = img.closest('div.relative');
-                          if (container) {
-                            const spinner = container.querySelector('div.absolute');
-                            if (spinner instanceof HTMLElement) {
-                              spinner.style.display = 'none';
-                            }
-                          }
-                        }}
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          img.style.display = 'none';
-                          
-                          const container = img.closest('div.relative');
-                          if (container) {
-                            const spinner = container.querySelector('div.absolute');
-                            if (spinner instanceof HTMLElement) {
-                              spinner.innerHTML = '<div class="p-2 text-red-500 text-xs text-center">Failed to load</div>';
-                            }
-                          }
-                        }}
-                      />
-                    )}
-                      
-                    {/* Play button for videos */}
-                    {media.type === 'video' && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                        <div className="w-12 h-12 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
-                          <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-white border-b-8 border-b-transparent ml-1"></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
               </div>
             </div>
           ))}
