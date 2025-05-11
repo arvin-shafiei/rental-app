@@ -85,6 +85,7 @@ export function generateUniqueFilename(originalFilename: string, maxLength: numb
 
 /**
  * Upload file to Supabase Storage
+ * Updated to use property-based paths instead of user-based
  */
 export async function uploadToSupabase(
   fileBuffer: Buffer, 
@@ -141,15 +142,25 @@ export async function uploadToSupabase(
  * Get public URL for an uploaded file
  */
 export function getPublicUrl(path: string, bucketName: string = 'room-media'): string {
-  const { data } = supabaseAdmin.storage
-    .from(bucketName)
-    .getPublicUrl(path);
+  if (!path) return '';
   
-  return data.publicUrl;
+  try {
+    // First try with the public URL
+    const { data } = supabaseAdmin.storage
+      .from(bucketName)
+      .getPublicUrl(path);
+    
+    return data.publicUrl;
+  } catch (error) {
+    // Last resort - construct a direct URL
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    return `${supabaseUrl}/storage/v1/object/public/${bucketName}/${path}`;
+  }
 }
 
 /**
- * Delete a file from Supabase storage
+ * Delete a file from Supabase storage and property_images table
+ * Updated to work with the new property-based approach
  */
 export async function deleteFileFromStorage(
   filePath: string, 
@@ -159,12 +170,24 @@ export async function deleteFileFromStorage(
 ): Promise<void> {
   logger.methodStart('deleteFileFromStorage', { filePath, userId, propertyId, bucketName });
   
-  // Verify that the image path starts with the correct user and property ID
-  // This is a security check to prevent users from deleting other users' files
-  const expectedPathPrefix = `${userId}/${propertyId}/`;
-  if (!filePath.startsWith(expectedPathPrefix)) {
-    logger.error(`Security check failed: path ${filePath} does not start with expected prefix ${expectedPathPrefix}`);
-    throw new Error('You do not have permission to delete this file');
+  // Check user access to the property
+  const propertyService = new PropertyService();
+  const property = await propertyService.getPropertyById(propertyId, userId);
+  
+  if (!property) {
+    throw new Error(`Property with ID ${propertyId} not found or you don't have access to it`);
+  }
+  
+  // Remove the image record from the property_images table
+  const { error: dbError } = await supabaseAdmin
+    .from('property_images')
+    .delete()
+    .eq('path', filePath)
+    .eq('property_id', propertyId);
+  
+  if (dbError) {
+    logger.error(`Failed to delete image record from database: ${dbError.message}`);
+    throw new Error(`Failed to delete image record: ${dbError.message}`);
   }
   
   // Delete the file from Supabase storage
@@ -219,7 +242,7 @@ export async function fetchPropertyImages(imageIds: string[], propertyId: string
 }
 
 /**
- * List all images for a property
+ * List all images for a property from property_images table
  */
 export async function listPropertyImages(propertyId: string, userId: string): Promise<any[]> {
   logger.methodStart('listPropertyImages', { propertyId, userId });
@@ -228,110 +251,86 @@ export async function listPropertyImages(propertyId: string, userId: string): Pr
     // Create property service instance
     const propertyService = new PropertyService();
     
-    // Check if the property exists and belongs to the user
+    // Check if the property exists and user has access
     const property = await propertyService.getPropertyById(propertyId, userId);
     
     if (!property) {
       throw new Error(`Property with ID ${propertyId} not found or you don't have access to it`);
     }
     
-    // The path structure: userId/propertyId/images/
-    const baseImagesPath = `${userId}/${propertyId}/images`;
+    // Fetch all images for the property from the property_images table
+    const { data: images, error } = await supabaseAdmin
+      .from('property_images')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('created_at', { ascending: false });
     
-    // List all rooms in the images directory
-    const { data: roomFolders, error: foldersError } = await supabaseAdmin.storage
-      .from('room-media')
-      .list(baseImagesPath, {
-        sortBy: { column: 'name', order: 'asc' }
-      });
-    
-    if (foldersError) {
-      logger.error(`Error listing room folders: ${foldersError.message}`);
-      throw new Error(`Error listing room folders: ${foldersError.message}`);
+    if (error) {
+      logger.error(`Error fetching property images: ${error.message}`);
+      throw new Error(`Error fetching property images: ${error.message}`);
     }
     
-    // Filter directories (rooms)
-    const filteredRoomFolders = roomFolders || [];
+    if (!images || images.length === 0) {
+      logger.info(`No images found for property ${propertyId}`);
+      return [];
+    }
     
-    logger.info(`Found ${filteredRoomFolders.length} room folders`);
-    
-    // Get images for each room
-    const roomsWithImages = await Promise.all(
-      filteredRoomFolders.map(async (folder) => {
-        const roomName = folder.name;
-        
-        // Skip non-directory items
-        if (!folder || folder.metadata !== null) {
-          return null;
-        }
-        
-        // Path structure: userId/propertyId/images/roomName
-        const roomPath = `${baseImagesPath}/${roomName}`;
-        
-        logger.info(`Listing images in room: ${roomPath}`);
-        
-        // List all files in the room directory
-        const { data: imageFiles, error: imagesError } = await supabaseAdmin.storage
+    // Process images and generate signed URLs
+    const processedImages = await Promise.all(images.map(async (image) => {
+      let url = '';
+      
+      try {
+        // Create a signed URL with 24-hour expiry
+        const { data, error } = await supabaseAdmin.storage
           .from('room-media')
-          .list(roomPath, {
-            sortBy: { column: 'created_at', order: 'desc' }
-          });
+          .createSignedUrl(image.path, 60 * 60 * 24);
         
-        if (imagesError) {
-          logger.error(`Error listing images for room ${roomName}: ${imagesError.message}`);
-          return {
-            roomName,
-            images: []
-          };
+        if (data && !error) {
+          url = data.signedUrl;
+        } else {
+          // Fall back to public URL
+          url = getPublicUrl(image.path);
         }
-        
-        // Filter non-images
-        const validImageFiles = imageFiles?.filter(file => 
-          file.metadata !== null && 
-          typeof file.metadata === 'object' && 
-          file.name.match(/\.(jpe?g|png|gif|webp)$/i)
-        ) || [];
-        
-        logger.info(`Found ${validImageFiles.length} images in room ${roomName}`);
-        
-        // Generate URLs for each image
-        const images = await Promise.all(validImageFiles.map(async file => {
-          const path = `${roomPath}/${file.name}`;
-          
-          // Create a signed URL that expires in 1 day (86400 seconds)
-          const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
-            .from('room-media')
-            .createSignedUrl(path, 86400);
-          
-          if (signedUrlError || !signedUrlData) {
-            logger.error(`Error creating signed URL for ${path}: ${signedUrlError?.message}`);
-            return null;
-          }
-          
-          return {
-            filename: file.name,
-            path,
-            url: signedUrlData.signedUrl,
-            metadata: file.metadata,
-            created_at: file.created_at
-          };
-        }));
-        
-        // Filter out null values (failed to create signed URLs)
-        const validImages = images.filter(img => img !== null);
-        
-        return {
-          roomName,
-          images: validImages
-        };
-      })
-    );
+      } catch (e) {
+        // Use regular public URL as fallback
+        url = getPublicUrl(image.path);
+      }
+      
+      return {
+        ...image,
+        url
+      };
+    }));
     
-    // Filter out null values
-    const result = roomsWithImages.filter(room => room !== null);
-    logger.info(`Returning ${result.length} rooms with images`);
+    // Group images by room name
+    const roomsMap = new Map<string, any[]>();
     
-    return result;
+    processedImages.forEach(image => {
+      const roomName = image.room_name || 'unspecified';
+      
+      if (!roomsMap.has(roomName)) {
+        roomsMap.set(roomName, []);
+      }
+      
+      roomsMap.get(roomName)?.push({
+        id: image.id,
+        path: image.path,
+        filename: image.filename,
+        url: image.url,
+        uploaded_at: image.created_at,
+        uploader_id: image.original_uploader_id
+      });
+    });
+    
+    // Convert map to array of room objects
+    const rooms = Array.from(roomsMap).map(([name, images]) => ({
+      name,
+      display_name: name === 'unspecified' ? 'General' : name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      images
+    }));
+    
+    logger.info(`Found ${images.length} images in ${rooms.length} rooms`);
+    return rooms;
   } catch (error: any) {
     logger.error(`Error in listPropertyImages: ${error.message}`);
     throw error;
@@ -497,12 +496,12 @@ export async function fetchRoomMediaImages(imageIds: string[], propertyId: strin
         
         // List files in this room folder
         const folderPath = `${basePath}/${folder.name}`;
-        const { data: files, error: filesError } = await supabaseAdmin.storage
+        const { data: files, error: imagesError } = await supabaseAdmin.storage
           .from('room-media')
           .list(folderPath);
         
-        if (filesError) {
-          logger.error(`Error listing files in ${folderPath}: ${filesError.message}`);
+        if (imagesError) {
+          logger.error(`Error listing images for room ${folder.name}: ${imagesError.message}`);
           continue;
         }
         
@@ -620,4 +619,96 @@ export async function compressFileIfNeeded(
       return fileBuffer;
     }
   }
+}
+
+/**
+ * Build property-based storage path (not tied to a specific user)
+ * This is a new function for the updated image storage approach
+ */
+export async function buildPropertyStoragePath(
+  propertyId: string,
+  userId: string, // Used only for authorization
+  folderType: 'images' | 'documents' = 'images',
+  subFolderName?: string
+): Promise<string> {
+  logger.methodStart('buildPropertyStoragePath', { 
+    propertyId, 
+    userId, // Only for authorization check
+    folderType,
+    subFolderName 
+  });
+  
+  // Create property service instance
+  const propertyService = new PropertyService();
+  
+  // Check if the property exists and user has access to it
+  const property = await propertyService.getPropertyById(propertyId, userId);
+  
+  if (!property) {
+    throw new Error(`Property with ID ${propertyId} not found or you don't have access to it`);
+  }
+  
+  // Build path: properties/propertyId/images|documents/subFolderName/
+  let storagePath = `properties/${propertyId}/${folderType}/`;
+  
+  if (subFolderName) {
+    // Sanitize folder name (remove spaces, special chars)
+    const sanitizedName = subFolderName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+      
+    storagePath += `${sanitizedName}/`;
+  } else {
+    // If no subfolder name specified, use default
+    storagePath += folderType === 'images' ? 'unspecified/' : 'general/';
+  }
+  
+  logger.info(`Built property storage path: ${storagePath}`);
+  return storagePath;
+}
+
+/**
+ * Save image record to property_images table
+ * This is a new function for the updated image storage approach
+ */
+export async function savePropertyImageRecord(
+  propertyId: string,
+  userId: string,
+  path: string,
+  filename: string,
+  roomName?: string,
+  contentType?: string
+): Promise<string> {
+  logger.methodStart('savePropertyImageRecord', { 
+    propertyId, 
+    userId,
+    path,
+    filename,
+    roomName,
+    contentType
+  });
+  
+  // Insert record into property_images table
+  const { data, error } = await supabaseAdmin
+    .from('property_images')
+    .insert({
+      property_id: propertyId,
+      original_uploader_id: userId,
+      path,
+      filename,
+      room_name: roomName || 'unspecified',
+      content_type: contentType || 'image/webp'
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    logger.error(`Failed to save image record: ${error.message}`);
+    throw new Error(`Failed to save image record: ${error.message}`);
+  }
+  
+  logger.info(`Image record saved with ID: ${data.id}`);
+  return data.id;
 } 

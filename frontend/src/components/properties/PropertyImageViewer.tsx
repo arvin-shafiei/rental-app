@@ -8,7 +8,8 @@ interface PropertyImageViewerProps {
 }
 
 interface RoomData {
-  roomName: string;
+  name: string;
+  display_name?: string;
   images: {
     url: string;
     path: string;
@@ -17,7 +18,8 @@ interface RoomData {
 }
 
 interface ApiRoomData {
-  roomName: string;
+  name: string;
+  display_name?: string;
   images: {
     url: string;
     path: string;
@@ -31,7 +33,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, path: string, roomName: string} | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, path: string, name: string} | null>(null);
   
   const fetchPropertyImages = async () => {
     try {
@@ -56,7 +58,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
         
         // Sort rooms by name for consistent display
         const sortedRooms = [...processedRooms].sort((a, b) => 
-          a.roomName.localeCompare(b.roomName)
+          a.name.localeCompare(b.name)
         );
         
         setRooms(sortedRooms);
@@ -86,12 +88,12 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     setSelectedMedia(null);
   };
 
-  const openDeleteModal = (e: React.MouseEvent, imagePath: string, roomName: string) => {
+  const openDeleteModal = (e: React.MouseEvent, imagePath: string, name: string) => {
     e.stopPropagation(); // Prevent media modal from opening
     setDeleteModal({
       isOpen: true,
       path: imagePath,
-      roomName
+      name
     });
   };
 
@@ -120,7 +122,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     }
   };
   
-  const handleDownloadMedia = (e: React.MouseEvent, url: string, roomName: string, index: number) => {
+  const handleDownloadMedia = (e: React.MouseEvent, url: string, name: string, index: number) => {
     e.stopPropagation(); // Prevent modal from opening
     
     // Create a temporary link element
@@ -129,7 +131,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
     
     // Set filename based on room name and index
     const extension = url.split('.').pop() || '';
-    a.download = `${formatRoomName(roomName)}_${index + 1}.${extension}`;
+    a.download = `${formatRoomName(name)}_${index + 1}.${extension}`;
     
     // Trigger download
     document.body.appendChild(a);
@@ -222,7 +224,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
           </div>
           <div className="flex-1">
             <p className="text-sm text-gray-700 mt-1">
-              This will permanently delete this {isVideo ? "video" : "image"} from {deleteModal?.roomName ? formatRoomName(deleteModal.roomName) : ''}.
+              This will permanently delete this {isVideo ? "video" : "image"} from {deleteModal?.name ? formatRoomName(deleteModal.name) : ''}.
             </p>
             <p className="text-sm text-gray-500 mt-2">
               This action cannot be undone. Are you sure you want to continue?
@@ -254,12 +256,12 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
       {singleImageRooms.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           {singleImageRooms.map((room) => (
-            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+            <div key={room.name} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
               <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center">
                 <div className="flex items-center">
                   <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
                   <h3 className="text-sm font-medium text-gray-800">
-                    {formatRoomName(room.roomName)}
+                    {formatRoomName(room.name)}
                   </h3>
                 </div>
                 
@@ -269,7 +271,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                     className="bg-blue-50 hover:bg-blue-100 text-blue-600 rounded p-1 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDownloadMedia(e, room.images[0].url, room.roomName, 0);
+                      handleDownloadMedia(e, room.images[0].url, room.name, 0);
                     }}
                     title="Download"
                   >
@@ -277,7 +279,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                   </button>
                   <button
                     className="bg-red-50 hover:bg-red-100 text-red-600 rounded p-1 transition-colors"
-                    onClick={(e) => openDeleteModal(e, room.images[0].path, room.roomName)}
+                    onClick={(e) => openDeleteModal(e, room.images[0].path, room.name)}
                     disabled={isDeleting}
                     title="Delete"
                   >
@@ -322,7 +324,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                   ) : (
                     <img 
                       src={room.images[0].url}
-                      alt={`${room.roomName}`}
+                      alt={`${room.name}`}
                       className="w-full h-full object-cover z-20"
                       onLoad={(e) => {
                         const img = e.target as HTMLImageElement;
@@ -347,12 +349,12 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
       {multiImageRooms.length > 0 && (
         <div className="space-y-4">
           {multiImageRooms.map((room) => (
-            <div key={room.roomName} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+            <div key={room.name} className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
               <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
                 <div className="flex items-center">
                   <Home className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
                   <h3 className="text-sm font-medium text-gray-800">
-                    {formatRoomName(room.roomName)}
+                    {formatRoomName(room.name)}
                   </h3>
                 </div>
               </div>
@@ -369,14 +371,14 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                       <div className="absolute top-0 right-0 p-1 z-20 flex space-x-1 bg-white/60 backdrop-blur-sm rounded-bl-md">
                         <button
                           className="bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-1.5 transition-colors"
-                          onClick={(e) => handleDownloadMedia(e, media.url, room.roomName, imgIndex)}
+                          onClick={(e) => handleDownloadMedia(e, media.url, room.name, imgIndex)}
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
                         </button>
                         <button
                           className="bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-1.5 transition-colors"
-                          onClick={(e) => openDeleteModal(e, media.path, room.roomName)}
+                          onClick={(e) => openDeleteModal(e, media.path, room.name)}
                           disabled={isDeleting}
                           title="Delete"
                         >
@@ -415,7 +417,7 @@ export default function PropertyImageViewer({ propertyId }: PropertyImageViewerP
                       ) : (
                         <img 
                           src={media.url}
-                          alt={`${room.roomName} ${imgIndex + 1}`}
+                          alt={`${room.name} ${imgIndex + 1}`}
                           className="absolute inset-0 w-full h-full object-cover z-20"
                           onLoad={(e) => {
                             const img = e.target as HTMLImageElement;

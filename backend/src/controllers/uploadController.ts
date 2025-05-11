@@ -16,6 +16,7 @@ export class UploadController extends BaseController {
 
   /**
    * Upload a single image
+   * Updated to use property-based storage and property_images table
    */
   async uploadImage(req: Request, res: Response): Promise<void> {
     this.logger.methodStart('uploadImage');
@@ -47,17 +48,37 @@ export class UploadController extends BaseController {
         100 * 1024 * 1024 // 100MB limit
       );
       
-      // Upload to Supabase storage - pass original filename to preserve extension
-      const supabasePath = await this.uploadService.uploadToSupabase(
-        compressedBuffer, 
-        userId, 
-        propertyId, 
-        roomName, 
-        req.file.originalname
+      // Get property-based storage path (not tied to user)
+      const storagePath = await imageUtils.buildPropertyStoragePath(
+        propertyId,
+        userId, // Used only for authorization
+        'images',
+        roomName
+      );
+      
+      // Generate unique filename
+      const filename = imageUtils.generateUniqueFilename(req.file.originalname);
+      
+      // Upload to Supabase storage
+      const supabasePath = await imageUtils.uploadToSupabase(
+        compressedBuffer,
+        storagePath,
+        filename,
+        'image/webp'
+      );
+      
+      // Save record to property_images table
+      await imageUtils.savePropertyImageRecord(
+        propertyId,
+        userId,
+        supabasePath,
+        filename,
+        roomName,
+        'image/webp'
       );
       
       // Get a public URL for the uploaded file
-      const publicUrl = this.uploadService.getPublicUrl(supabasePath);
+      const publicUrl = imageUtils.getPublicUrl(supabasePath);
       
       this.logger.info(`Image uploaded successfully at path: ${supabasePath}`);
       this.sendSuccess(res, 'Image uploaded successfully', {
@@ -74,6 +95,7 @@ export class UploadController extends BaseController {
 
   /**
    * Upload multiple images
+   * Updated to use property-based storage and property_images table
    */
   async uploadMultipleImages(req: Request, res: Response): Promise<void> {
     this.logger.methodStart('uploadMultipleImages');
@@ -97,6 +119,14 @@ export class UploadController extends BaseController {
       
       this.logger.info(`Uploading ${(req.files as Express.Multer.File[]).length} images for property: ${propertyId}`);
       
+      // Get property-based storage path (not tied to user)
+      const storagePath = await imageUtils.buildPropertyStoragePath(
+        propertyId,
+        userId, // Used only for authorization
+        'images',
+        roomName
+      );
+      
       // Process all uploaded files
       const uploadedFiles = await Promise.all(
         (req.files as Express.Multer.File[]).map(async (file) => {
@@ -108,18 +138,30 @@ export class UploadController extends BaseController {
               file.originalname,
               100 * 1024 * 1024 // 100MB limit
             );
-          
-            // Upload to Supabase storage - pass original filename to preserve extension
-            const supabasePath = await this.uploadService.uploadToSupabase(
-              compressedBuffer, 
-              userId, 
-              propertyId, 
-              roomName, 
-              file.originalname
+            
+            // Generate unique filename
+            const filename = imageUtils.generateUniqueFilename(file.originalname);
+            
+            // Upload to Supabase storage
+            const supabasePath = await imageUtils.uploadToSupabase(
+              compressedBuffer,
+              storagePath,
+              filename,
+              'image/webp'
+            );
+            
+            // Save record to property_images table
+            await imageUtils.savePropertyImageRecord(
+              propertyId,
+              userId,
+              supabasePath,
+              filename,
+              roomName,
+              'image/webp'
             );
             
             // Get a public URL for the uploaded file
-            const publicUrl = this.uploadService.getPublicUrl(supabasePath);
+            const publicUrl = imageUtils.getPublicUrl(supabasePath);
             
             return {
               filename: supabasePath.split('/').pop(),
@@ -156,7 +198,7 @@ export class UploadController extends BaseController {
     this.logger.methodStart('listPropertyImages', { propertyId, userId });
     
     try {
-      const rooms = await this.uploadService.listPropertyImages(propertyId, userId);
+      const rooms = await imageUtils.listPropertyImages(propertyId, userId);
       
       this.logger.info(`Found ${rooms.length} rooms with images`);
       this.sendSuccess(res, 'Property images retrieved successfully', rooms);
@@ -187,7 +229,7 @@ export class UploadController extends BaseController {
         return;
       }
       
-      await this.uploadService.deleteImage(propertyId, userId, imagePath);
+      await imageUtils.deleteFileFromStorage(imagePath, userId, propertyId);
       
       this.logger.info(`Image deleted successfully: ${imagePath}`);
       this.sendSuccess(res, 'Image deleted successfully');
