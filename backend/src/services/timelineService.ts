@@ -532,13 +532,19 @@ export class TimelineService {
     const leaseStartDate = property.lease_start_date;
     const leaseEndDate = property.lease_end_date;
     
-    // Check if lease start event already exists
+    // Check if lease start date is in the past
+    const now = new Date();
+    const startDate = new Date(leaseStartDate);
+    const isPastStartDate = startDate < now;
+    
+    // Check if lease start event already exists for this user
     const { data: existingStartEvent, error: startEventError } = await supabaseAdmin
       .from('timeline_events')
       .select('id')
       .eq('property_id', property.id)
       .eq('event_type', TimelineEventType.LEASE_START)
       .eq('start_date', leaseStartDate)
+      .eq('user_id', userId) // Filter by user_id to allow multiple users to have their own events
       .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows found
       
     if (startEventError) {
@@ -555,21 +561,27 @@ export class TimelineService {
         event_type: TimelineEventType.LEASE_START,
         start_date: leaseStartDate,
         is_all_day: true,
-        notification_days_before: 7
+        notification_days_before: 7,
+        is_completed: isPastStartDate // Mark as completed if start date is in the past
       }, userId);
       
-      console.log('Lease start event created:', result ? 'success' : 'failed');
+      console.log('Lease start event created:', result ? 'success' : 'failed', isPastStartDate ? ' (marked as completed)' : '');
     } else {
-      console.log('Lease start event already exists');
+      console.log('Lease start event already exists for this user');
     }
 
-    // Check if lease end event already exists
+    // Check if lease end date is in the past
+    const endDate = new Date(leaseEndDate);
+    const isPastEndDate = endDate < now;
+
+    // Check if lease end event already exists for this user
     const { data: existingEndEvent, error: endEventError } = await supabaseAdmin
       .from('timeline_events')
       .select('id')
       .eq('property_id', property.id)
       .eq('event_type', TimelineEventType.LEASE_END)
       .eq('start_date', leaseEndDate)
+      .eq('user_id', userId) // Filter by user_id to allow multiple users to have their own events
       .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows found
       
     if (endEventError) {
@@ -586,12 +598,13 @@ export class TimelineService {
         event_type: TimelineEventType.LEASE_END,
         start_date: leaseEndDate,
         is_all_day: true,
-        notification_days_before: 30 // Notify a month before
+        notification_days_before: 30, // Notify a month before
+        is_completed: isPastEndDate // Mark as completed if end date is in the past
       }, userId);
       
-      console.log('Lease end event created:', result ? 'success' : 'failed');
+      console.log('Lease end event created:', result ? 'success' : 'failed', isPastEndDate ? ' (marked as completed)' : '');
     } else {
-      console.log('Lease end event already exists');
+      console.log('Lease end event already exists for this user');
     }
   }
 
@@ -735,6 +748,7 @@ export class TimelineService {
         .eq('property_id', property.id)
         .eq('event_type', TimelineEventType.RENT_DUE)
         .eq('start_date', eventDate)
+        .eq('user_id', userId) // Filter by user_id to allow multiple users to have their own events
         .maybeSingle(); // Use maybeSingle instead of single to avoid error when no rows found
         
       if (eventError) {
@@ -822,50 +836,69 @@ export class TimelineService {
           break;
       }
       
-      // Create inspection event
-      const inspectionEvent = {
-        property_id: propertyData.id,
-        user_id: userId,
-        title: title,
-        description: `Schedule an inspection for ${propertyData.name || 'your property'}`,
-        event_type: TimelineEventType.INSPECTION,
-        start_date: nextYear.toISOString(),
-        is_all_day: true,
-        recurrence_type: recurrenceType,
-        notification_days_before: 14,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error } = await supabaseAdmin
+      // Check if inspection event already exists
+      const { data: existingEvent, error: checkError } = await supabaseAdmin
         .from('timeline_events')
-        .insert(inspectionEvent);
-      
-      if (error) {
-        console.error('Error creating inspection event:', error);
-        return false;
+        .select('id')
+        .eq('property_id', propertyData.id)
+        .eq('event_type', TimelineEventType.INSPECTION)
+        .eq('user_id', userId)
+        .eq('title', title)
+        .maybeSingle();
+        
+      if (checkError) {
+        console.error('Error checking for existing inspection event:', checkError);
       }
       
-      // For biannual frequency, we need to create two events per year
-      if (inspectionFrequency === 'biannual') {
-        const secondInspection = new Date();
-        secondInspection.setMonth(today.getMonth() + 6);
-        
-        const secondInspectionEvent = {
-          ...inspectionEvent,
-          start_date: secondInspection.toISOString(),
+      // Only create if it doesn't already exist
+      if (!existingEvent) {
+        // Create inspection event
+        const inspectionEvent = {
+          property_id: propertyData.id,
+          user_id: userId,
+          title: title,
+          description: `Schedule an inspection for ${propertyData.name || 'your property'}`,
+          event_type: TimelineEventType.INSPECTION,
+          start_date: nextYear.toISOString(),
+          is_all_day: true,
+          recurrence_type: recurrenceType,
+          notification_days_before: 14,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
         
-        const { error: secondError } = await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from('timeline_events')
-          .insert(secondInspectionEvent);
+          .insert(inspectionEvent);
         
-        if (secondError) {
-          console.error('Error creating second inspection event:', secondError);
-          // Continue anyway, at least we created one event
+        if (error) {
+          console.error('Error creating inspection event:', error);
+          return false;
         }
+        
+        // For biannual frequency, we need to create two events per year
+        if (inspectionFrequency === 'biannual') {
+          const secondInspection = new Date();
+          secondInspection.setMonth(today.getMonth() + 6);
+          
+          const secondInspectionEvent = {
+            ...inspectionEvent,
+            start_date: secondInspection.toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          const { error: secondError } = await supabaseAdmin
+            .from('timeline_events')
+            .insert(secondInspectionEvent);
+          
+          if (secondError) {
+            console.error('Error creating second inspection event:', secondError);
+            // Continue anyway, at least we created one event
+          }
+        }
+      } else {
+        console.log('Inspection event already exists for this user, skipping creation');
       }
       
       return true;
@@ -879,37 +912,56 @@ export class TimelineService {
     try {
       const today = new Date();
       
-      // Create quarterly maintenance events
-      const maintenanceEvents = [];
-      
-      for (let i = 0; i < 4; i++) {
-        const eventDate = new Date();
-        eventDate.setMonth(today.getMonth() + 3 * (i + 1));
+      // Check if maintenance events already exist for this user and property
+      const { data: existingEvents, error: checkError } = await supabaseAdmin
+        .from('timeline_events')
+        .select('id')
+        .eq('property_id', propertyData.id)
+        .eq('event_type', TimelineEventType.MAINTENANCE)
+        .eq('user_id', userId)
+        .eq('title', 'Quarterly Maintenance Check')
+        .maybeSingle();
         
-        maintenanceEvents.push({
-          property_id: propertyData.id,
-          user_id: userId,
-          title: 'Quarterly Maintenance Check',
-          description: `Schedule regular maintenance for ${propertyData.name || 'your property'}`,
-          event_type: TimelineEventType.MAINTENANCE,
-          start_date: eventDate.toISOString(),
-          is_all_day: true,
-          recurrence_type: TimelineEventRecurrence.QUARTERLY,
-          notification_days_before: 7,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+      if (checkError) {
+        console.error('Error checking for existing maintenance events:', checkError);
       }
       
-      if (maintenanceEvents.length > 0) {
-        const { error } = await supabaseAdmin
-          .from('timeline_events')
-          .insert(maintenanceEvents);
+      // Only create if they don't already exist
+      if (!existingEvents) {
+        // Create quarterly maintenance events
+        const maintenanceEvents = [];
         
-        if (error) {
-          console.error('Error creating maintenance events:', error);
-          return false;
+        for (let i = 0; i < 4; i++) {
+          const eventDate = new Date();
+          eventDate.setMonth(today.getMonth() + 3 * (i + 1));
+          
+          maintenanceEvents.push({
+            property_id: propertyData.id,
+            user_id: userId,
+            title: 'Quarterly Maintenance Check',
+            description: `Schedule regular maintenance for ${propertyData.name || 'your property'}`,
+            event_type: TimelineEventType.MAINTENANCE,
+            start_date: eventDate.toISOString(),
+            is_all_day: true,
+            recurrence_type: TimelineEventRecurrence.QUARTERLY,
+            notification_days_before: 7,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
         }
+        
+        if (maintenanceEvents.length > 0) {
+          const { error } = await supabaseAdmin
+            .from('timeline_events')
+            .insert(maintenanceEvents);
+          
+          if (error) {
+            console.error('Error creating maintenance events:', error);
+            return false;
+          }
+        }
+      } else {
+        console.log('Maintenance events already exist for this user, skipping creation');
       }
       
       return true;
@@ -929,27 +981,45 @@ export class TimelineService {
         taxDueDate.setFullYear(today.getFullYear() + 1);
       }
       
-      const taxEvent = {
-        property_id: propertyData.id,
-        user_id: userId,
-        title: 'Property Tax Due',
-        description: `Property tax payment due for ${propertyData.name || 'your property'}`,
-        event_type: TimelineEventType.OTHER,
-        start_date: taxDueDate.toISOString(),
-        is_all_day: true,
-        recurrence_type: TimelineEventRecurrence.YEARLY,
-        notification_days_before: 30,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error } = await supabaseAdmin
+      // Check if tax event already exists for this user and property
+      const { data: existingEvent, error: checkError } = await supabaseAdmin
         .from('timeline_events')
-        .insert(taxEvent);
+        .select('id')
+        .eq('property_id', propertyData.id)
+        .eq('user_id', userId)
+        .eq('title', 'Property Tax Due')
+        .maybeSingle();
+        
+      if (checkError) {
+        console.error('Error checking for existing property tax event:', checkError);
+      }
       
-      if (error) {
-        console.error('Error creating property tax event:', error);
-        return false;
+      // Only create if it doesn't already exist
+      if (!existingEvent) {
+        const taxEvent = {
+          property_id: propertyData.id,
+          user_id: userId,
+          title: 'Property Tax Due',
+          description: `Property tax payment due for ${propertyData.name || 'your property'}`,
+          event_type: TimelineEventType.OTHER,
+          start_date: taxDueDate.toISOString(),
+          is_all_day: true,
+          recurrence_type: TimelineEventRecurrence.YEARLY,
+          notification_days_before: 30,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { error } = await supabaseAdmin
+          .from('timeline_events')
+          .insert(taxEvent);
+        
+        if (error) {
+          console.error('Error creating property tax event:', error);
+          return false;
+        }
+      } else {
+        console.log('Property tax event already exists for this user, skipping creation');
       }
       
       return true;
@@ -965,27 +1035,45 @@ export class TimelineService {
       const renewalDate = new Date();
       renewalDate.setFullYear(today.getFullYear() + 1);
       
-      const insuranceEvent = {
-        property_id: propertyData.id,
-        user_id: userId,
-        title: 'Insurance Renewal',
-        description: `Renew insurance for ${propertyData.name || 'your property'}`,
-        event_type: TimelineEventType.OTHER,
-        start_date: renewalDate.toISOString(),
-        is_all_day: true,
-        recurrence_type: TimelineEventRecurrence.YEARLY,
-        notification_days_before: 30,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error } = await supabaseAdmin
+      // Check if insurance event already exists for this user and property
+      const { data: existingEvent, error: checkError } = await supabaseAdmin
         .from('timeline_events')
-        .insert(insuranceEvent);
+        .select('id')
+        .eq('property_id', propertyData.id)
+        .eq('user_id', userId)
+        .eq('title', 'Insurance Renewal')
+        .maybeSingle();
+        
+      if (checkError) {
+        console.error('Error checking for existing insurance event:', checkError);
+      }
       
-      if (error) {
-        console.error('Error creating insurance event:', error);
-        return false;
+      // Only create if it doesn't already exist
+      if (!existingEvent) {
+        const insuranceEvent = {
+          property_id: propertyData.id,
+          user_id: userId,
+          title: 'Insurance Renewal',
+          description: `Renew insurance for ${propertyData.name || 'your property'}`,
+          event_type: TimelineEventType.OTHER,
+          start_date: renewalDate.toISOString(),
+          is_all_day: true,
+          recurrence_type: TimelineEventRecurrence.YEARLY,
+          notification_days_before: 30,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { error } = await supabaseAdmin
+          .from('timeline_events')
+          .insert(insuranceEvent);
+        
+        if (error) {
+          console.error('Error creating insurance event:', error);
+          return false;
+        }
+      } else {
+        console.log('Insurance event already exists for this user, skipping creation');
       }
       
       return true;

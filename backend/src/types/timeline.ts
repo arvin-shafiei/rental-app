@@ -47,6 +47,7 @@ export interface CreateTimelineEventDTO {
     recurrence_end_date?: string;
     notification_days_before?: number;
     metadata?: Record<string, any>;
+    is_completed?: boolean;
 }
 
 export interface UpdateTimelineEventDTO extends Partial<CreateTimelineEventDTO> {
