@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import TabButton from '@/components/ui/TabButton';
-import { getProperties } from '@/lib/api';
+import { getProperties, fetchFromApi } from '@/lib/api';
 import { toast } from '@/components/ui/FormElements';
 import CreateAgreementForm from '@/components/agreements/CreateAgreementForm';
 import ViewAgreementsPanel from '@/components/agreements/ViewAgreementsPanel';
 import { Property } from '@/types/agreement';
+import { Loader2 } from 'lucide-react';
 
 export default function AgreementBuilder() {
   // Tab state
@@ -19,10 +20,12 @@ export default function AgreementBuilder() {
   // State for syncing between tabs
   const [lastCreatedPropertyId, setLastCreatedPropertyId] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+  // State to control when to show content (after data is loaded)
+  const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
 
   // Fetch properties on initial load and when refresh is triggered
   useEffect(() => {
-    const fetchProperties = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
         const response = await getProperties();
@@ -30,6 +33,16 @@ export default function AgreementBuilder() {
         // Extract properties from the data property of the response
         const propertiesArray = response.data && Array.isArray(response.data) ? response.data : [];
         setProperties(propertiesArray);
+        
+        // Check if any agreements exist for the user (without filtering by property)
+        try {
+          const agreementsResponse = await fetchFromApi('/agreements');
+          if (Array.isArray(agreementsResponse) && agreementsResponse.length > 0) {
+            setActiveTab('view');
+          }
+        } catch (agreementError) {
+          console.error('Error checking for agreements:', agreementError);
+        }
       } catch (error) {
         console.error('Error fetching properties:', error);
         toast({
@@ -40,10 +53,11 @@ export default function AgreementBuilder() {
         setProperties([]);
       } finally {
         setIsLoading(false);
+        setInitialLoadComplete(true);
       }
     };
 
-    fetchProperties();
+    fetchData();
   }, [refreshTrigger]);
 
   // Handler for when a new agreement is created
@@ -61,6 +75,21 @@ export default function AgreementBuilder() {
       description: 'Agreement deleted successfully',
     });
   };
+
+  // Show loading screen until initial data is loaded
+  if (!initialLoadComplete) {
+    return (
+      <div className="container mx-auto py-6">
+        <h1 className="text-3xl font-bold mb-6 text-black">Agreements</h1>
+        <div className="bg-white shadow rounded-lg p-8">
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+            <p className="text-gray-500">Loading agreements...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 text-black">
