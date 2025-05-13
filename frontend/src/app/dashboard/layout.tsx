@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
-import { Home, Building, FileText, Calendar, CheckSquare, User, Settings, LogOut, ChevronDown, Mail } from 'lucide-react';
+import { Home, Building, FileText, Calendar, CheckSquare, User, Settings, LogOut, ChevronDown, Mail, CreditCard } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 import { Button } from "@/components/ui/button";
 import {
@@ -117,6 +117,12 @@ export default function DashboardLayout({
                   <Link href="/dashboard/settings" className="flex w-full items-center">
                     <Settings className="mr-2 h-4 w-4 text-blue-500" />
                     <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer" asChild>
+                  <Link href="/dashboard/settings/billing" className="flex w-full items-center">
+                    <CreditCard className="mr-2 h-4 w-4 text-blue-500" />
+                    <span>Billing & Subscriptions</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
