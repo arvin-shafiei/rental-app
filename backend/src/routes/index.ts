@@ -11,6 +11,7 @@ import contractsRouter from './contracts';
 import agreementsRouter from './agreements';
 import depositRequestsRouter from './depositRequests';
 import repairRequestsRouter from './repairRequests';
+import stripeRouter from './stripe';
 
 // Initialize main router
 const router = Router();
@@ -28,5 +29,6 @@ router.use('/contracts', contractsRouter);
 router.use('/agreements', agreementsRouter);
 router.use('/deposit-requests', depositRequestsRouter);
 router.use('/repair-requests', repairRequestsRouter);
+router.use('/stripe', stripeRouter);
 
 export default router; 

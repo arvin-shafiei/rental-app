@@ -23,8 +23,9 @@ function AuthContent() {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        // Redirect to returnUrl if provided, otherwise to dashboard
-        if (returnUrl) {
+        // Check if returnUrl is from our app and doesn't redirect back to auth
+        // to prevent infinite redirect loops
+        if (returnUrl && !returnUrl.includes('/auth')) {
           router.push(decodeURIComponent(returnUrl));
         } else {
           router.push('/dashboard');
@@ -69,7 +70,7 @@ function AuthContent() {
       
       if (response.data.session) {
         // Redirect to returnUrl if provided, otherwise to dashboard
-        if (returnUrl) {
+        if (returnUrl && !returnUrl.includes('/auth')) {
           router.push(decodeURIComponent(returnUrl));
         } else {
           router.push('/dashboard');
