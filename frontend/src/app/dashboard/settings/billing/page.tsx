@@ -68,6 +68,16 @@ export default function BillingPage() {
     }
   }, [searchParams]);
 
+  // Handle automatic sync when returning from Stripe checkout
+  useEffect(() => {
+    const shouldSync = searchParams.get('success') === 'true' && searchParams.get('sync') === 'true';
+    
+    if (shouldSync && user) {
+      console.log('Auto-syncing subscription from Stripe redirect...');
+      handleSyncSubscription(false);
+    }
+  }, [user, searchParams]);
+
   const handleSubscribe = async (priceId: string) => {
     if (!user) return;
     
@@ -146,6 +156,36 @@ export default function BillingPage() {
     }
   };
 
+  const handleSyncSubscription = async (showAlert = true) => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data } = await supabase.auth.getSession();
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/stripe/sync-subscription/${user.id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${data.session?.access_token}`
+          }
+        }
+      );
+      
+      setSubscription(response.data);
+      if (showAlert) {
+        alert('Subscription synced successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error syncing subscription:', error);
+      setError(error.response?.data?.error || error.message || 'Failed to sync subscription');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openCustomerPortal = async () => {
     if (!user) return;
     
@@ -177,6 +217,12 @@ export default function BillingPage() {
 
   const getCurrentPlan = () => {
     if (!subscription) return 'Free';
+    
+    // If subscription is canceled, return "Free" or "[Plan] (Canceled)"
+    if (subscription.status === 'canceled') {
+      return `${subscription.plan?.name || 'Unknown'} (Canceled)`;
+    }
+    
     return subscription.plan?.name || 'Free';
   };
 
@@ -242,7 +288,8 @@ export default function BillingPage() {
           <Card 
             key={plan.id}
             className={
-              plan.name === currentPlan ? 'border-green-200' : ''
+              plan.name === currentPlan ? 'border-green-200' : 
+              (subscription?.status === 'canceled' && plan.name === subscription.plan?.name ? 'border-amber-200' : '')
             }
           >
             <CardHeader>
@@ -294,13 +341,21 @@ export default function BillingPage() {
               </ul>
             </CardContent>
             <CardFooter>
-              {plan.name === currentPlan ? (
+              {plan.name === currentPlan && !currentPlan.includes('Canceled') ? (
                 <Button 
                   variant="outline" 
                   className="w-full text-gray-700" 
                   disabled
                 >
                   Current Plan
+                </Button>
+              ) : subscription?.status === 'canceled' && plan.name === subscription.plan?.name ? (
+                <Button 
+                  variant="outline" 
+                  className="w-full text-amber-700 border-amber-300" 
+                  disabled
+                >
+                  Active Until {formatDate(subscription.current_period_end)}
                 </Button>
               ) : (
                 <Button
@@ -374,10 +429,20 @@ export default function BillingPage() {
           <div className="mt-6 flex justify-center">
             <Button
               variant="outline"
-              className="text-gray-700"
+              className="text-gray-700 mx-2"
               onClick={() => window.location.reload()}
             >
               Refresh Billing Information
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="text-blue-700 border-blue-300 bg-blue-50 hover:bg-blue-100 mx-2"
+              onClick={() => handleSyncSubscription(true)}
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sync Subscription
             </Button>
           </div>
         </div>

@@ -256,7 +256,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
         }
       ],
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL}/dashboard/settings/billing?success=true`,
+      success_url: `${process.env.FRONTEND_URL}/dashboard/settings/billing?success=true&sync=true&sessionId={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/dashboard/settings/billing?canceled=true`,
       metadata: {
         userId
@@ -642,5 +642,177 @@ export const createPortalSession = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error creating customer portal session:', error);
     res.status(500).json({ error: 'Failed to create customer portal session' });
+  }
+};
+
+/**
+ * Manually sync a user's subscription from Stripe to Supabase
+ * This is useful if webhooks are not being received correctly
+ */
+export const syncUserSubscription = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing required parameter: userId' });
+    }
+
+    // Get user profile from Supabase
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (userError) {
+      console.error('Error fetching user profile:', userError);
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    // Get subscriptions for this user from Stripe
+    const { data: existingSubData, error: existingSubError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('user_id', userId)
+      .single();
+
+    // If we don't have a Stripe customer ID for this user, we can't sync
+    if (!existingSubData?.stripe_customer_id && existingSubError?.code !== 'PGRST116') {
+      console.error('Error fetching existing subscription:', existingSubError);
+      return res.status(404).json({ error: 'No Stripe customer ID found for this user' });
+    }
+
+    let customerId = existingSubData?.stripe_customer_id;
+    
+    // If we don't have a customer ID, try to find one by user email
+    if (!customerId) {
+      // Get user email from auth
+      const { data: { user } = {} } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (!user?.email) {
+        return res.status(404).json({ error: 'No user email found' });
+      }
+
+      // Try to find customer by email
+      const customers = await stripe.customers.list({
+        email: user.email,
+        limit: 1
+      });
+
+      if (customers.data.length === 0) {
+        return res.status(404).json({ error: 'No Stripe customer found for this user' });
+      }
+
+      customerId = customers.data[0].id;
+    }
+
+    // Get subscriptions for this customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 1
+    });
+
+    if (subscriptions.data.length === 0) {
+      return res.status(404).json({ error: 'No subscription found for this user' });
+    }
+
+    const subscription = subscriptions.data[0];
+    const priceId = subscription.items.data[0].price.id;
+    const periodEnd = new Date((subscription as any).current_period_end * 1000).toISOString();
+
+    // Get plan details from Supabase
+    const { data: planData, error: planError } = await supabaseAdmin
+      .from('plans')
+      .select('id')
+      .eq('stripe_price_id', priceId)
+      .single();
+
+    if (planError) {
+      console.error('Error fetching plan:', planError);
+      return res.status(500).json({ error: 'Failed to fetch plan details' });
+    }
+
+    // Check if we have an existing subscription record
+    const { data: existingSubscription, error: subError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (subError && subError.code !== 'PGRST116') {
+      console.error('Error checking for existing subscription:', subError);
+      return res.status(500).json({ error: 'Failed to check for existing subscription' });
+    }
+
+    // Insert or update subscription
+    if (existingSubscription) {
+      // Update existing subscription
+      const { error: updateError } = await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          plan_id: planData.id,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: customerId,
+          status: subscription.status,
+          current_period_end: periodEnd
+        })
+        .eq('id', existingSubscription.id);
+
+      if (updateError) {
+        console.error('Error updating subscription:', updateError);
+        return res.status(500).json({ error: 'Failed to update subscription' });
+      }
+    } else {
+      // Create new subscription
+      const { data: newSubscription, error: createError } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          plan_id: planData.id,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: customerId,
+          status: subscription.status,
+          current_period_end: periodEnd
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        console.error('Error creating subscription:', createError);
+        return res.status(500).json({ error: 'Failed to create subscription' });
+      }
+
+      // Update user profile with subscription id
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ subscription_id: newSubscription.id })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error('Error updating user profile:', profileError);
+        return res.status(500).json({ error: 'Failed to update user profile with subscription' });
+      }
+    }
+
+    // Fetch the updated subscription to return
+    const { data: updatedSubscription, error: fetchError } = await supabaseAdmin
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:plans(*)
+      `)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching updated subscription:', fetchError);
+      return res.status(500).json({ error: 'Failed to fetch updated subscription' });
+    }
+
+    res.status(200).json(updatedSubscription);
+  } catch (error: any) {
+    console.error('Error syncing user subscription:', error);
+    res.status(500).json({ error: 'Failed to sync user subscription: ' + error.message });
   }
 }; 

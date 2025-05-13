@@ -19,6 +19,9 @@ router.get('/plans', stripeController.getPlans);
 // Get user's current subscription
 router.get('/subscriptions/user/:userId', authenticateUser, stripeController.getUserSubscription);
 
+// Manually sync a user's subscription from Stripe to the database
+router.post('/sync-subscription/:userId', authenticateUser, stripeController.syncUserSubscription);
+
 // Create checkout session
 router.post('/create-checkout', authenticateUser, stripeController.createCheckoutSession);
 
