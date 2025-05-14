@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { FileUp, Loader2, File, X, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Toast } from "@/components/ui/FormElements";
+import Link from 'next/link';
 
 interface PropertyDocumentUploadProps {
   propertyId: string;
@@ -30,6 +32,7 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLimitError, setShowLimitError] = useState<boolean>(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -51,9 +54,38 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
     }
   }, [selectedFile]);
 
+  // Check if user has reached document limit
+  const checkDocumentLimit = async (): Promise<boolean> => {
+    try {
+      if (!authToken) return true;
+      
+      const response = await fetch(`/api/stripe/check-limits?feature=documents`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      const result = await response.json();
+      
+      return result.allowed;
+    } catch (error) {
+      console.error('Error checking document limits:', error);
+      return true; // Allow upload if check fails to prevent blocking users
+    }
+  };
+
   // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      // Check limits before processing the file
+      const allowed = await checkDocumentLimit();
+      
+      if (!allowed) {
+        setShowLimitError(true);
+        return;
+      }
+      
       setSelectedFile(e.target.files[0]);
       setUploadResult(null);
       setShowSuccess(false);
@@ -97,7 +129,7 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
   };
 
   // Handle drop event
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -105,6 +137,14 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
     // First check if we have a document type selected
     if (!getFinalDocumentType()) {
       setError("Please select a document type before uploading");
+      return;
+    }
+    
+    // Check limits before processing the dropped file
+    const allowed = await checkDocumentLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
       return;
     }
     
@@ -118,10 +158,18 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
   };
 
   // Activate file input when clicking on drop area
-  const activateFileInput = () => {
+  const activateFileInput = async () => {
     // Check if document type is selected first
     if (!getFinalDocumentType()) {
       setError("Please select a document type before uploading");
+      return;
+    }
+    
+    // Check limits before opening file picker
+    const allowed = await checkDocumentLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
       return;
     }
     
@@ -154,6 +202,18 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
 
     if (!finalDocumentType) {
       setError("Please select a document type");
+      return;
+    }
+    
+    // Check limits before uploading
+    const allowed = await checkDocumentLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -200,7 +260,13 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
       } else {
         const errorData = await response.json();
         console.error('Upload failed:', errorData);
-        setError(errorData.message || "Upload failed");
+        
+        // Check if this is a limit error
+        if (errorData.code === 'limit_exceeded') {
+          setShowLimitError(true);
+        } else {
+          setError(errorData.message || "Upload failed");
+        }
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -336,6 +402,25 @@ export default function PropertyDocumentUpload({ propertyId, onDocumentUploaded 
           <p>Successfully uploaded <strong>{uploadResult?.data?.originalName || 'document'}</strong></p>
         </div>
       )}
+      
+      {/* Limit exceeded toast with link to billing */}
+      <Toast 
+        title="Document Limit Reached"
+        description={
+          <div>
+            You've reached your document upload limit. 
+            <Link 
+              href="/dashboard/settings/billing" 
+              className="ml-1 text-blue-600 hover:text-blue-800 underline"
+            >
+              Upgrade your plan
+            </Link> to upload more documents.
+          </div>
+        }
+        variant="destructive"
+        visible={showLimitError}
+        onClose={() => setShowLimitError(false)}
+      />
     </div>
   );
 }

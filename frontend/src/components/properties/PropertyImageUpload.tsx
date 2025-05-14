@@ -3,6 +3,9 @@ import { Upload, Loader2, Camera, X, Image as ImageIcon, Info, Download, Trash2 
 import { supabase } from '@/lib/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Toast } from "@/components/ui/FormElements";
+import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 interface PropertyImageUploadProps {
   propertyId: string;
@@ -33,18 +36,23 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isVideo, setIsVideo] = useState<boolean>(false);
   const [showSuccess, setShowSuccess] = useState<boolean>(false);
+  const [showLimitError, setShowLimitError] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
+  // Get the auth token
+  const getAuthToken = async (): Promise<string | null> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token || null;
+    setAuthToken(token);
+    return token;
+  };
+
   useEffect(() => {
     // Get the auth token
-    async function getAuthToken() {
-      const { data } = await supabase.auth.getSession();
-      setAuthToken(data.session?.access_token || null);
-    }
-
     getAuthToken();
   }, []);
 
@@ -69,9 +77,86 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
     }
   }, [selectedFile, roomName]);
 
+  // Check if user has reached image limit
+  const checkImageLimit = async (): Promise<boolean> => {
+    try {
+      let token = authToken;
+      
+      if (!token) {
+        // Try to refresh the token first
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        token = refreshData?.session?.access_token || null;
+        if (token) {
+          setAuthToken(token);
+        } else {
+          console.error('No auth token available');
+          return false; // Don't allow upload if no auth token
+        }
+      }
+      
+      const response = await fetch(`/api/stripe/check-limits?feature=images`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Check limit failed with status: ${response.status}`);
+        
+        // For 401/auth errors, try refreshing the token and retry
+        if (response.status === 401) {
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData?.session?.access_token) {
+            token = refreshData.session.access_token;
+            setAuthToken(token);
+            
+            const retryResponse = await fetch(`/api/stripe/check-limits?feature=images`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (retryResponse.ok) {
+              const retryResult = await retryResponse.json();
+              return retryResult.allowed;
+            }
+            
+            // If retry after token refresh still fails, don't allow upload
+            console.error('Token refresh succeeded but limit check still failed');
+            return false;
+          }
+          
+          console.error('Failed to refresh token');
+          return false;
+        }
+        
+        // For other errors, be cautious and don't allow upload
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log('Limit check result:', result);
+      
+      return result.allowed;
+    } catch (error) {
+      console.error('Error checking image limits:', error);
+      return false; // Don't allow upload if check fails
+    }
+  };
+
   // Handle file selection from input
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      // Check limits before processing the file
+      const allowed = await checkImageLimit();
+      
+      if (!allowed) {
+        setShowLimitError(true);
+        return;
+      }
+      
       setSelectedFile(e.target.files[0]);
       setUploadResult(null);
       setShowSuccess(false);
@@ -91,10 +176,18 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   };
 
   // Handle drop event
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    
+    // Check limits before processing the dropped file
+    const allowed = await checkImageLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
+      return;
+    }
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
@@ -123,14 +216,30 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
   };
 
   // Activate file input when clicking on drop area
-  const activateFileInput = () => {
+  const activateFileInput = async () => {
+    // Check limits before opening file picker
+    const allowed = await checkImageLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
+      return;
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
   // Activate camera/video recording
-  const activateCamera = () => {
+  const activateCamera = async () => {
+    // Check limits before opening camera
+    const allowed = await checkImageLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
+      return;
+    }
+    
     if (videoRef.current) {
       videoRef.current.click();
     }
@@ -152,34 +261,97 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
       return;
     }
 
-    if (!authToken) {
-      return;
+    let token = authToken;
+    if (!token) {
+      // Try to refresh the token
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      if (refreshData?.session?.access_token) {
+        token = refreshData.session.access_token || null;
+        setAuthToken(token);
+      } else {
+        console.error('No auth token available');
+        setError('Authentication required. Please refresh the page and try again.');
+        return;
+      }
     }
 
     if (!finalRoomName) {
       return;
     }
+    
+    // Check limits before uploading
+    const allowed = await checkImageLimit();
+    
+    if (!allowed) {
+      setShowLimitError(true);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     try {
       setIsUploading(true);
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001/api';
       
       // Create a FormData object to send the file
       const formData = new FormData();
       formData.append('image', selectedFile);
       
       // Build the URL with query parameters for propertyId and roomName
-      let uploadUrl = `${backendUrl}/upload/image?propertyId=${propertyId}&roomName=${encodeURIComponent(finalRoomName)}`;
+      let uploadUrl = `/api/upload/image?propertyId=${propertyId}&roomName=${encodeURIComponent(finalRoomName)}`;
       
-      // Make the request to the backend
-      const response = await fetch(uploadUrl, {
+      console.log('Sending upload request with token', token?.substring(0, 10) + '...');
+      
+      // Make the request to the frontend API route
+      let response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
       
+      // Handle authentication issues
+      if (response.status === 401) {
+        console.log('Received 401, refreshing token and retrying...');
+        
+        // Try refreshing the token and retrying once
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (refreshData?.session?.access_token) {
+          token = refreshData.session.access_token;
+          setAuthToken(token);
+          
+          console.log('Retrying with new token', token?.substring(0, 10) + '...');
+          
+          // Clone the FormData since the original might have been consumed
+          const newFormData = new FormData();
+          newFormData.append('image', selectedFile);
+          
+          response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: newFormData
+          });
+          
+          // If still failing after token refresh
+          if (response.status === 401) {
+            console.error('Still unauthorized after token refresh');
+            setError('Authentication failed. Please try logging in again.');
+            setIsUploading(false);
+            return;
+          }
+        } else {
+          console.error('Failed to refresh token');
+          setError('Authentication failed. Please try logging in again.');
+          setIsUploading(false);
+          return;
+        }
+      }
+      
+      // Process the response
       if (response.ok) {
         const result = await response.json();
         setUploadResult(result);
@@ -190,11 +362,25 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
           setShowSuccess(false);
         }, 3000);
       } else {
-        const errorData = await response.json();
-        console.error('Upload failed:', errorData);
+        console.error('Upload failed with status:', response.status);
+        try {
+          const errorData = await response.json();
+          console.error('Upload error details:', errorData);
+          
+          // Check if this is a limit error
+          if (errorData.code === 'limit_exceeded') {
+            setShowLimitError(true);
+          } else {
+            setError(errorData.error || 'Upload failed. Please try again later.');
+          }
+        } catch (e) {
+          console.error('Could not parse error response', e);
+          setError('Upload failed. Please try again later.');
+        }
       }
     } catch (error) {
       console.error('Upload error:', error);
+      setError('An unexpected error occurred. Please try again later.');
     } finally {
       setIsUploading(false);
     }
@@ -415,6 +601,33 @@ export default function PropertyImageUpload({ propertyId }: PropertyImageUploadP
         <div className="fixed bottom-4 right-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md shadow-lg flex items-center z-50 animate-slideInUp">
           <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
           <p>Successfully uploaded to <strong>{uploadResult?.data?.roomName.replace(/-/g, ' ')}</strong></p>
+        </div>
+      )}
+      
+      {/* Limit exceeded toast with link to billing */}
+      <Toast 
+        title="Image Limit Reached"
+        description={
+          <div>
+            You've reached your image upload limit. 
+            <Link 
+              href="/dashboard/settings/billing" 
+              className="ml-1 text-blue-600 hover:text-blue-800 underline"
+            >
+              Upgrade your plan
+            </Link> to upload more images.
+          </div>
+        }
+        variant="destructive"
+        visible={showLimitError}
+        onClose={() => setShowLimitError(false)}
+      />
+      
+      {/* Error message toast */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md shadow-lg flex items-center z-50 animate-slideInUp">
+          <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
+          <p>{error}</p>
         </div>
       )}
     </div>

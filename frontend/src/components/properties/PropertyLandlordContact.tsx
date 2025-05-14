@@ -31,6 +31,8 @@ interface PropertyLandlordContactProps {
   propertyId: string;
   propertyName: string;
   landlordEmail?: string;
+  onEmailLimitError?: () => void;
+  checkEmailLimit?: () => Promise<boolean>;
 }
 
 type RequestType = 'deposit' | 'repair';
@@ -38,7 +40,9 @@ type RequestType = 'deposit' | 'repair';
 export default function PropertyLandlordContact({ 
   propertyId, 
   propertyName,
-  landlordEmail 
+  landlordEmail,
+  onEmailLimitError,
+  checkEmailLimit
 }: PropertyLandlordContactProps) {
   const [message, setMessage] = useState('');
   // Use separate state for selections (by uniqueId) vs sending (by realId)
@@ -196,21 +200,33 @@ Best regards,
   // Submit request - either deposit or repair
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!message.trim()) {
+      setError('Please enter a message to send to the landlord');
+      return;
+    }
+    
+    if (!landlordEmail) {
+      setError('Landlord email is not set for this property. Please edit the property details.');
+      return;
+    }
+    
+    // Check email limit before sending
+    if (checkEmailLimit) {
+      const allowed = await checkEmailLimit();
+      if (!allowed) {
+        if (onEmailLimitError) {
+          onEmailLimitError();
+        }
+        return;
+      }
+    }
+    
     setLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
-      // Validate landlord email
-      if (!landlordEmail) {
-        throw new Error('Landlord email is not set for this property. Please edit the property details to add it.');
-      }
-
-      // Validate message
-      if (!message.trim()) {
-        throw new Error('Please enter a message to send to the landlord.');
-      }
-      
       // Get the real image IDs from the selected map, filter out nulls
       const validImageIds = Object.values(selectedImageIds).filter(id => id !== null && id !== undefined);
 

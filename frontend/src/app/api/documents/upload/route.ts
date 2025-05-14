@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase/client';
+import { cookies } from 'next/headers';
 
 // Backend API URL from environment variables
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
@@ -44,6 +46,40 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // First check if the user has reached their document limit
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !data.session) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
+    const session = data.session;
+    
+    // Check document limits
+    const limitCheckResponse = await fetch(`/api/stripe/check-limits?feature=documents`, {
+      headers: {
+        'Authorization': authHeader
+      }
+    });
+    
+    const limitData = await limitCheckResponse.json();
+    
+    if (!limitData.allowed) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Document limit reached', 
+          code: 'limit_exceeded',
+          currentUsage: limitData.currentUsage,
+          limit: limitData.limit
+        },
+        { status: 403 }
+      );
+    }
+    
     // Add the document file to the new FormData
     backendFormData.append('document', file);
     
@@ -82,6 +118,28 @@ export async function POST(request: NextRequest) {
     }
     
     const result = await response.json();
+    
+    // If upload was successful, increment the document usage counter
+    if (result.success) {
+      try {
+        await fetch(`/api/stripe/increment-usage`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            feature: 'documents',
+            userId: session.user.id
+          })
+        });
+        console.log(`[Usage Tracking] Incremented document usage for user ${session.user.id}`);
+      } catch (error) {
+        console.error('[Usage Tracking] Failed to increment document usage:', error);
+        // Continue execution even if tracking fails
+      }
+    }
+    
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error in document upload API route:', error);

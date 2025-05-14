@@ -88,7 +88,8 @@ export abstract class BaseRequestService {
           emailContent,
           attachments,
           senderName,
-          user.email
+          user.email,
+          requestData.userId
         );
         
         // Store the request in the database for tracking

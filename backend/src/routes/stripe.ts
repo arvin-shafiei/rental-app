@@ -34,8 +34,31 @@ router.post('/sync-plans', authenticateUser, stripeController.syncPlans);
 // Cancel a subscription
 router.post('/cancel-subscription', authenticateUser, stripeController.cancelSubscription);
 
-// Check feature limits
+// Check feature limits - both POST and GET methods supported
 router.post('/check-limits', authenticateUser, stripeController.checkFeatureLimits);
+router.get('/check-limits', authenticateUser, async (req, res) => {
+  try {
+    // For GET requests, extract the userId from the authenticated user
+    // and feature from query parameters
+    const userId = (req as any).user?.id;  // Access user property added by middleware
+    const feature = req.query.feature as string;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    if (!feature) {
+      return res.status(400).json({ error: 'Missing required parameter: feature' });
+    }
+    
+    // Use the existing controller method with the reconstructed body
+    req.body = { userId, feature };
+    return stripeController.checkFeatureLimits(req, res);
+  } catch (error) {
+    console.error('Error in GET check-limits endpoint:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Increment feature usage
 router.post('/increment-usage', authenticateUser, stripeController.incrementFeatureUsage);
