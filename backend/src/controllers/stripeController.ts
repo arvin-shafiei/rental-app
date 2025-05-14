@@ -46,7 +46,7 @@ export const syncStripePlans = async () => {
         stripe_price_id: defaultPrice.id,
         amount: defaultPrice.unit_amount || 0,
         currency: defaultPrice.currency || 'usd',
-        interval: (defaultPrice.recurring?.interval || 'month'),
+        interval: defaultPrice.recurring ? defaultPrice.recurring.interval : 'one-time',
         features: product.metadata.features ? JSON.parse(product.metadata.features) : {}
       };
       
@@ -550,6 +550,16 @@ export const checkFeatureLimits = async (req: Request, res: Response) => {
     // Check against limits
     const limits = plan.features;
     const currentUsage = usage[feature] || 0;
+    
+    // Check if this specific feature is unlimited (value of -1)
+    if (limits[feature] === -1) {
+      return res.status(200).json({
+        allowed: true,
+        currentUsage,
+        limit: 'unlimited',
+        plan: plan.name
+      });
+    }
 
     res.status(200).json({
       allowed: currentUsage < limits[feature],
