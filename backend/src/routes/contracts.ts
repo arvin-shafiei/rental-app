@@ -6,8 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeContract } from '../services/openAiService';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import axios from 'axios';
 import { storeContractSummary, getContractSummaries, getContractSummaryById } from '../services/contractService';
 import { supabaseAdmin } from '../services/supabase'; // Import supabaseAdmin
+import { incrementFeatureUsage } from '../utils/usageTrackingUtils';
 
 dotenv.config();
 
@@ -17,6 +19,18 @@ interface RequestWithUser extends Request {
     id: string;
     [key: string]: any;
   };
+}
+
+// Function to track summaries usage
+async function trackSummaryUsage(userId: string) {
+  if (!userId) return;
+  
+  try {
+    await incrementFeatureUsage(userId, 'summaries');
+    console.log(`[Usage Tracking] Incremented summaries usage for user ${userId}`);
+  } catch (error: any) {
+    console.error('[Usage Tracking] Failed to increment summaries usage:', error);
+  }
 }
 
 // Configure multer for file uploads
@@ -271,6 +285,11 @@ router.post('/scan', upload.single('document'), async (req, res) => {
           const userId = req.body.userId || (req as RequestWithUser).user?.id;
           console.log(`Storing contract summary with user ID: ${userId || 'anonymous'}`);
           await storeContractSummary(analysis, userId);
+          
+          // Track summaries usage
+          if (userId) {
+            await trackSummaryUsage(userId);
+          }
         } catch (storageError) {
           console.warn('Failed to store summary, but continuing:', storageError);
           // Continue execution even if storage fails
@@ -303,6 +322,11 @@ router.post('/scan', upload.single('document'), async (req, res) => {
           const userId = req.body.userId || (req as RequestWithUser).user?.id;
           console.log(`Storing contract summary with user ID: ${userId || 'anonymous'}`);
           await storeContractSummary(analysis, userId);
+          
+          // Track summaries usage
+          if (userId) {
+            await trackSummaryUsage(userId);
+          }
         } catch (storageError) {
           console.warn('Failed to store summary, but continuing:', storageError);
           // Continue execution even if storage fails

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getProperties, updateProperty } from '@/lib/api';
 import { Property } from '@/components/properties/PropertyDetails';
 import PropertyLandlordContact from '@/components/properties/PropertyLandlordContact';
+import { Toast } from "@/components/ui/FormElements";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/FormElements';
+import { supabase } from '@/lib/supabase/client';
+
+// Update the PropertyLandlordContact props type to include our new props
+interface ExtendedPropertyLandlordContactProps {
+  propertyId: string;
+  propertyName: string;
+  landlordEmail?: string;
+  onEmailLimitError: () => void;
+  checkEmailLimit: () => Promise<boolean>;
+}
 
 export default function ContactLandlordPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -27,6 +38,18 @@ export default function ContactLandlordPage() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [showLimitError, setShowLimitError] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Get the auth token
+    async function getAuthToken() {
+      const { data } = await supabase.auth.getSession();
+      setAuthToken(data.session?.access_token || null);
+    }
+
+    getAuthToken();
+  }, []);
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -53,6 +76,60 @@ export default function ContactLandlordPage() {
 
     fetchProperties();
   }, []);
+
+  // Check if user has reached email limit
+  const checkEmailLimit = async (): Promise<boolean> => {
+    try {
+      // Try to get a fresh token
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      
+      if (!token) {
+        console.error('No access token available');
+        return false; // Don't allow email if we can't verify limits
+      }
+      
+      console.log('Checking email limits with token');
+      
+      const response = await fetch(`/api/stripe/check-limits?feature=emails`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Check limit failed with status: ${response.status}`);
+        if (response.status === 401) {
+          // If unauthorized, try refreshing the token and retrying once
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData.session?.access_token) {
+            const retryResponse = await fetch(`/api/stripe/check-limits?feature=emails`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${refreshData.session.access_token}`
+              }
+            });
+            
+            if (retryResponse.ok) {
+              const retryResult = await retryResponse.json();
+              return retryResult.allowed;
+            }
+          }
+        }
+        // If we still can't check limits after retry, be cautious and don't allow
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log('Limit check result:', result);
+      
+      return result.allowed;
+    } catch (error) {
+      console.error('Error checking email limits:', error);
+      return false; // Don't allow email if check fails
+    }
+  };
 
   const handlePropertySelect = (property: Property) => {
     setSelectedProperty(property);
@@ -118,130 +195,173 @@ export default function ContactLandlordPage() {
     }
   };
 
+  // Function to handle email limit error
+  const handleEmailLimitError = () => {
+    setShowLimitError(true);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center">
-          <Link
-            href="/dashboard"
-            className="mr-4 flex items-center text-blue-600 hover:text-blue-800"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-2xl text-gray-700 font-bold">Contact Landlord</h1>
-        </div>
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-8">
+        <Link 
+          href="/dashboard/properties" 
+          className="text-blue-600 hover:text-blue-800 flex items-center text-sm"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Properties
+        </Link>
+        <h1 className="text-2xl font-bold mt-4 text-gray-900">Contact Landlord</h1>
       </div>
       
-      {/* Property Selector - Now at the top */}
-      <div className="bg-white rounded-lg shadow p-5">
-        <div className="flex flex-col space-y-5">
-          <div className="w-full max-w-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Select Property
-            </label>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="w-full flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 text-gray-600 focus:ring-blue-500 focus:border-blue-500">
-                <span className="truncate">{selectedProperty ? selectedProperty.name : 'Select a property'}</span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 text-gray-500 flex-shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[300px] max-h-[400px] overflow-y-auto bg-white border border-gray-200 shadow-md" sideOffset={4}>
-                <DropdownMenuLabel className="font-semibold">Your Properties</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-200" />
-                {properties.length === 0 ? (
-                  <DropdownMenuItem disabled className="opacity-50 cursor-default">
-                    No properties available
-                  </DropdownMenuItem>
-                ) : (
-                  properties.map(property => (
-                    <DropdownMenuItem
-                      key={property.id}
-                      onClick={() => handlePropertySelect(property)}
-                      className="flex justify-between hover:bg-blue-50 cursor-pointer"
-                    >
-                      {property.name}
-                      {selectedProperty?.id === property.id && <Check className="h-4 w-4 text-blue-600" />}
-                    </DropdownMenuItem>
-                  ))
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          
-          {selectedProperty && (
-            <div className="border-t border-gray-200 pt-4 text-sm">
-              <div className="flex flex-col sm:flex-row sm:gap-x-12">
-                <div className="flex items-start mb-2 sm:mb-0">
-                  <MapPin className="h-4 w-4 text-gray-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <div>
-                    <div className="font-medium text-gray-700 mb-0.5">Address</div>
-                    <div className="text-gray-600">{getFullAddress(selectedProperty)}</div>
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="md:col-span-4 lg:col-span-3">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
+            </div>
+            <div className="p-0">
+              {loading ? (
+                <div className="p-4 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading properties...</p>
                 </div>
-                
-                <div className="flex items-start">
-                  <AtSign className="h-4 w-4 text-gray-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <div>
-                    <div className="font-medium text-gray-700 mb-0.5">Landlord Email</div>
-                    <div className="flex items-center gap-2">
-                      {isEditingEmail ? (
-                        <div className="flex items-center gap-2" style={{ minWidth: '450px' }}>
-                          <Input
-                            type="email"
-                            value={landlordEmail}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLandlordEmail(e.target.value)}
-                            placeholder="Enter landlord email"
-                            className="!w-64 h-8 text-sm"
-                          />
-                          <Button 
-                            onClick={handleSaveEmail} 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-8 gap-1 text-blue-600 hover:text-blue-800 border-blue-600 hover:border-blue-800 hover:bg-blue-50"
-                            disabled={updateLoading}
-                          >
-                            {updateLoading ? (
-                              <>
-                                <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
-                                <span>Saving</span>
-                              </>
-                            ) : (
-                              <>
-                                <Save className="h-3 w-3" />
-                                <span>Save</span>
-                              </>
-                            )}
-                          </Button>
+              ) : error ? (
+                <div className="p-4 text-red-600 flex items-center">
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                  <span>{error}</span>
+                </div>
+              ) : properties.length === 0 ? (
+                <div className="p-4 text-gray-600">
+                  <p>No properties found.</p>
+                  <Link 
+                    href="/dashboard/properties/add" 
+                    className="text-blue-600 hover:text-blue-800 mt-2 block"
+                  >
+                    Add a property
+                  </Link>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {properties.map((property) => (
+                    <li key={property.id}>
+                      <button
+                        className={`w-full text-left px-5 py-3 ${
+                          selectedProperty?.id === property.id 
+                            ? 'bg-blue-50' 
+                            : 'hover:bg-gray-50'
+                        }`}
+                        onClick={() => handlePropertySelect(property)}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">{property.emoji || '🏠'}</span>
+                          <span className="font-medium text-gray-900">{property.name}</span>
                         </div>
-                      ) : (
-                        <>
-                          <span className="text-gray-600">
-                            {selectedProperty.landlord_email || 'Not set'}
+                        <div className="text-sm text-gray-600 mt-1 flex items-center">
+                          <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                          <span className="truncate">
+                            {property.address_line1}, {property.city}
                           </span>
-                          <Button 
-                            onClick={handleEditEmail} 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-6 px-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            <span className="ml-1">Edit</span>
-                          </Button>
-                        </>
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="md:col-span-8 lg:col-span-9">
+          {!selectedProperty ? (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 flex items-center justify-center h-64">
+              <div className="text-center text-gray-500">
+                {properties.length > 0 ? 
+                  "Select a property to contact the landlord" : 
+                  "Add a property to contact your landlord"
+                }
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
+                <div className="p-5 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Property Details</h2>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center mb-4">
+                    <span className="text-3xl mr-3">{selectedProperty.emoji || '🏠'}</span>
+                    <h3 className="text-xl font-bold text-gray-900">{selectedProperty.name}</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Address</h4>
+                      <p className="text-gray-900">{getFullAddress(selectedProperty)}</p>
+                    </div>
+                    
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Landlord Email</h4>
+                      
+                      <div className="flex items-center gap-2">
+                        {isEditingEmail ? (
+                          <div className="flex items-center gap-2" style={{ minWidth: '450px' }}>
+                            <Input
+                              type="email"
+                              value={landlordEmail}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLandlordEmail(e.target.value)}
+                              placeholder="Enter landlord email"
+                              className="!w-64 h-8 text-sm"
+                            />
+                            <Button 
+                              onClick={handleSaveEmail} 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-8 gap-1 text-blue-600 hover:text-blue-800 border-blue-600 hover:border-blue-800 hover:bg-blue-50"
+                              disabled={updateLoading}
+                            >
+                              {updateLoading ? (
+                                <>
+                                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                                  <span>Saving</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="h-3 w-3" />
+                                  <span>Save</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-gray-600">
+                              {selectedProperty.landlord_email || 'Not set'}
+                            </span>
+                            <Button 
+                              onClick={handleEditEmail} 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-6 px-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              <span className="ml-1">Edit</span>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      {updateSuccess && (
+                        <div className="text-green-600 flex items-center gap-1 mt-1 text-xs">
+                          <Check className="h-3 w-3" />
+                          <span>Landlord email updated successfully</span>
+                        </div>
+                      )}
+                      {updateError && (
+                        <div className="text-red-600 flex items-center gap-1 mt-1 text-xs">
+                          <AlertCircle className="h-3 w-3" />
+                          <span>{updateError}</span>
+                        </div>
                       )}
                     </div>
-                    {updateSuccess && (
-                      <div className="text-green-600 flex items-center gap-1 mt-1 text-xs">
-                        <Check className="h-3 w-3" />
-                        <span>Landlord email updated successfully</span>
-                      </div>
-                    )}
-                    {updateError && (
-                      <div className="text-red-600 flex items-center gap-1 mt-1 text-xs">
-                        <AlertCircle className="h-3 w-3" />
-                        <span>{updateError}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -251,35 +371,36 @@ export default function ContactLandlordPage() {
       </div>
       
       {/* Main Contact Form */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        {!selectedProperty ? (
-          <div className="py-8 text-center text-gray-500">
-            <Mail className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>Please select a property to contact the landlord.</p>
-          </div>
-        ) : loading ? (
-          <div className="py-8 text-center">
-            <div className="animate-pulse flex flex-col items-center">
-              <div className="h-12 w-12 bg-blue-100 rounded-full mb-3"></div>
-              <div className="h-4 w-48 bg-blue-100 rounded mb-2"></div>
-              <div className="h-3 w-32 bg-blue-50 rounded"></div>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-            <div className="flex">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-              <p>{error}</p>
-            </div>
-          </div>
-        ) : (
-          <PropertyLandlordContact
-            propertyId={selectedProperty.id}
+      {selectedProperty && (
+        <div className="mt-8">
+          <PropertyLandlordContact 
+            propertyId={selectedProperty.id} 
             propertyName={selectedProperty.name}
             landlordEmail={selectedProperty.landlord_email}
+            onEmailLimitError={handleEmailLimitError}
+            checkEmailLimit={checkEmailLimit}
           />
-        )}
-      </div>
+        </div>
+      )}
+      
+      {/* Limit exceeded toast with link to billing */}
+      <Toast 
+        title="Email Limit Reached"
+        description={
+          <div>
+            You've reached your email sending limit. 
+            <Link 
+              href="/dashboard/settings/billing" 
+              className="ml-1 text-blue-600 hover:text-blue-800 underline"
+            >
+              Upgrade your plan
+            </Link> to send more emails.
+          </div>
+        }
+        variant="destructive"
+        visible={showLimitError}
+        onClose={() => setShowLimitError(false)}
+      />
     </div>
   );
 } 

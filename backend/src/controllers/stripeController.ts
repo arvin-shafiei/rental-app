@@ -46,7 +46,7 @@ export const syncStripePlans = async () => {
         stripe_price_id: defaultPrice.id,
         amount: defaultPrice.unit_amount || 0,
         currency: defaultPrice.currency || 'usd',
-        interval: (defaultPrice.recurring?.interval || 'month'),
+        interval: defaultPrice.recurring ? defaultPrice.recurring.interval : 'one-time',
         features: product.metadata.features ? JSON.parse(product.metadata.features) : {}
       };
       
@@ -499,49 +499,79 @@ export const checkFeatureLimits = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // Get user profile with subscription and plan
-    const { data: profile, error: profileError } = await supabaseAdmin
+    console.log(`Checking limits for user ${userId}, feature: ${feature}`);
+
+    // First, always get the user's profile to get usage data
+    const { data: userProfile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select(`
-        usage,
-        subscription:subscriptions!inner(
-          plan:plans(*)
-        )
-      `)
+      .select('usage')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
-      // If no subscription is found, return free plan limits
+      console.error('Error fetching user profile:', profileError);
+    }
+
+    console.log('User profile data:', userProfile?.usage ? JSON.stringify(userProfile.usage) : 'No usage data');
+
+    // If profile doesn't exist at all, create an empty usage object
+    const usage = userProfile?.usage || {} as Record<string, number>;
+    const currentUsage = usage[feature] || 0;
+
+    console.log(`Current usage for ${feature}:`, currentUsage);
+
+    // Try to get the user's subscription with plan details
+    const { data: subscriptionData, error: subError } = await supabaseAdmin
+      .from('subscriptions')
+      .select(`
+        *,
+        plan:plans(*)
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    // If no active subscription found or error, use Free plan
+    if (subError || !subscriptionData) {
+      console.log(`No active subscription found for user ${userId}, using Free plan`);
+      
       const { data: freePlan, error: planError } = await supabaseAdmin
         .from('plans')
-        .select('features')
+        .select('features, name')
         .eq('name', 'Free')
         .single();
 
       if (planError) throw planError;
-
-      const usage = {} as Record<string, number>;
+      
       const limits = freePlan.features;
-      const currentUsage = usage[feature] || 0;
+      const featureLimit = limits[feature];
+      
+      // Check if feature is unlimited (-1)
+      if (featureLimit === -1) {
+        return res.status(200).json({
+          allowed: true,
+          currentUsage,
+          limit: 'unlimited',
+          plan: 'Free'
+        });
+      }
 
       return res.status(200).json({
-        allowed: currentUsage < limits[feature],
+        allowed: currentUsage < featureLimit,
         currentUsage,
-        limit: limits[feature],
+        limit: featureLimit,
         plan: 'Free'
       });
     }
 
     // Access plan details - use type assertion to handle subscription.plan
-    const plan = (profile.subscription as any).plan;
-    const usage = profile.usage || {} as Record<string, number>;
-
+    const plan = (subscriptionData.plan as any);
+    
     // Check if user is on a plan with unlimited usage
     if (plan.features.unlimited) {
       return res.status(200).json({
         allowed: true,
-        currentUsage: usage[feature] || 0,
+        currentUsage,
         limit: 'unlimited',
         plan: plan.name
       });
@@ -549,7 +579,16 @@ export const checkFeatureLimits = async (req: Request, res: Response) => {
 
     // Check against limits
     const limits = plan.features;
-    const currentUsage = usage[feature] || 0;
+    
+    // Check if this specific feature is unlimited (value of -1)
+    if (limits[feature] === -1) {
+      return res.status(200).json({
+        allowed: true,
+        currentUsage,
+        limit: 'unlimited',
+        plan: plan.name
+      });
+    }
 
     res.status(200).json({
       allowed: currentUsage < limits[feature],

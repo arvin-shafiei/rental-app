@@ -1,9 +1,24 @@
 import { Resend } from 'resend';
 import { Property } from '../types/property';
+import { incrementFeatureUsage } from './usageTrackingUtils';
 
 // Initialize Resend with API key
 const resend = new Resend(process.env.RESEND_TRANSACTIONAL_KEY);
 const fromEmail = process.env.RESEND_TRANSACTIONAL_EMAIL || 'noreply@yourdomain.com';
+
+/**
+ * Track email usage for a user
+ */
+async function trackEmailUsage(userId: string) {
+  if (!userId) return;
+  
+  try {
+    await incrementFeatureUsage(userId, 'emails');
+    console.log(`[Usage Tracking] Incremented emails usage for user ${userId}`);
+  } catch (error: any) {
+    console.error('[Usage Tracking] Failed to increment emails usage:', error);
+  }
+}
 
 /**
  * Send email with attachments using Resend service
@@ -14,7 +29,8 @@ export async function sendEmail(
   htmlContent: string,
   attachments: any[],
   senderName: string,
-  replyTo?: string
+  replyTo?: string,
+  userId?: string // Add userId parameter to track usage
 ): Promise<any> {
   try {
     console.log(`[EmailUtils] Sending email from: ${fromEmail} with reply-to: ${replyTo}`);
@@ -32,6 +48,11 @@ export async function sendEmail(
     if (error) {
       console.error(`[EmailUtils] Error sending email:`, JSON.stringify(error));
       throw new Error(`Error sending email: ${JSON.stringify(error)}`);
+    }
+    
+    // Track email usage if userId is provided
+    if (userId) {
+      await trackEmailUsage(userId);
     }
     
     return data;
