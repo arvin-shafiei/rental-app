@@ -17,12 +17,12 @@ export default function HeroSection() {
               Rental Management Solution
             </h1>
             <p className="mx-auto max-w-[700px] text-gray-700 md:text-xl">
-              Document storage, maintenance tracking, and communications—all in one helpful rental companion.
+              Protect your deposit, track repairs, manage documents, and stay organized—everything you need to navigate rental life with confidence.
             </p>
           </div>
           <div className="space-y-4">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-8">Start 30-Day Free Trial</Button>
-            <p className="text-xs text-gray-500">No credit card required. No obligations. Just support.</p>
+            <p className="text-xs text-gray-500">No credit card required. Cancel anytime during your trial.</p>
           </div>
           <div className="relative w-full max-w-3xl mt-8">
             <div className="overflow-hidden rounded-lg border bg-white shadow-lg">

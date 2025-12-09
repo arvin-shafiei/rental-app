@@ -29,10 +29,10 @@ export default function ProblemSection() {
     <section className="w-full py-12 md:py-24 bg-white">
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
-          <SectionHeading
-            subtitle="HOW RENTHIVE HELPS"
-            title="Rental Challenges Solved"
-            description="RentHive understands the hurdles renters face every day. Our app helps you navigate these challenges with confidence."
+            <SectionHeading
+            subtitle="COMMON CHALLENGES"
+            title="Rental Problems We Solve"
+            description="RentHive helps you overcome the most common rental challenges with practical tools and expert guidance."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />

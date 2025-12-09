@@ -31,7 +31,7 @@ export default function HowItWorksSection() {
           <SectionHeading
             subtitle="GETTING STARTED"
             title="How RentHive Works"
-            description="RentHive supports your entire rental journey with these simple steps."
+            description="Get started in minutes and take control of your rental experience with these four simple steps."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />

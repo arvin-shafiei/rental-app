@@ -7,9 +7,9 @@ export default function SolutionSection() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex flex-col items-center justify-center space-y-4 text-center mb-10">
           <SectionHeading
-            subtitle="RENTHIVE SOLUTIONS"
-            title="Your Smart Rental Assistant"
-            description="RentHive provides practical tools to help you manage your rental property with confidence and ease."
+            subtitle="OUR SOLUTION"
+            title="Everything You Need in One Place"
+            description="RentHive combines powerful tools with simple design to make rental management effortless and stress-free."
             subtitleClassName="text-blue-500"
             titleClassName="text-blue-700"
           />

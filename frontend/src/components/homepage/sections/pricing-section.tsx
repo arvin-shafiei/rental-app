@@ -112,7 +112,7 @@ export default function PricingSection() {
             
             <div className="border-t border-gray-200 p-6">
               <p className="text-sm text-gray-500 mb-4 text-center">
-                Push HARD EARLY. Cash injection for YOU. Big loyalty anchor for THEM.
+                Limited time offer for early supporters. Get lifetime access at a special price and help shape RentHive's future.
               </p>
               
               <div className="space-y-4 mt-6">
@@ -126,7 +126,7 @@ export default function PricingSection() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                  <p className="text-sm text-gray-600">Ultra-early price: £79 limited time</p>
+                  <p className="text-sm text-gray-600">Special early supporter pricing</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Check className="h-5 w-5 text-blue-500 flex-shrink-0" />
