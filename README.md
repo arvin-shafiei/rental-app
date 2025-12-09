@@ -275,7 +275,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ## 📧 Support
 
-For support, email support@example.com or open an issue in the repository.
+For support, email director@arvinfinance.com or open an issue in the repository.
 
 ## 🗺️ Roadmap
 
